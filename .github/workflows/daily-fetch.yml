@@ -1,0 +1,34 @@
+name: Daily News Fetch
+
+on:
+  schedule:
+    - cron: '0 5 * * *' # 5:00 AM UTC every day
+  workflow_dispatch: {} # lets you trigger a manual test run from the Actions tab
+
+jobs:
+  fetch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Fetch, summarize, and store today's news
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/fetch-news.js
+
+      # Netlify rebuilds automatically from a "Build hook" URL — no deploy
+      # credentials need to live in this repo. Create one in Netlify:
+      # Site settings -> Build & deploy -> Build hooks -> Add build hook,
+      # then paste it into this repo's secrets as NETLIFY_BUILD_HOOK_URL.
+      - name: Trigger Netlify rebuild
+        run: curl -X POST -fsS "${{ secrets.NETLIFY_BUILD_HOOK_URL }}"
