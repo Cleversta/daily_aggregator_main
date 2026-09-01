@@ -53,7 +53,7 @@ works end-to-end and passes AdSense review before expanding
 - `app/page.js` — homepage grouped by hub, only showing hubs with at least
   one live category, with a "coming soon" line listing the rest.
 - `app/category/[slug]/page.js` — full detail page per category (headline,
-  image, summary, sources), statically generated for active categories only.
+  optional image or video thumbnail, summary, sources), statically generated for active categories only.
 
 ## Before scaling to 33 categories
 
@@ -71,6 +71,7 @@ works end-to-end and passes AdSense review before expanding
   the risk mitigation plan isn't built. For now, review rows directly in the
   Supabase table editor before the site rebuilds if you want to hand-edit anything.
 - No image optimization (static export doesn't support Next's image API) —
-  images render as plain `<img>` if you add them to the UI.
+  images and video thumbnails render as plain `<img>` elements. Video thumbnails
+  are currently detected for YouTube source links only.
 - Single Gemini call per category, no retry-with-backoff — a transient
   failure marks that category stale for the day rather than retrying.

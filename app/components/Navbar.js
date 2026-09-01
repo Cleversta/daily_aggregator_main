@@ -9,8 +9,8 @@ export default function Navbar() {
 
   return (
     <nav className="border-b border-line bg-paper">
-      <div className="max-w-3xl mx-auto px-6">
-        <div className="flex gap-6 overflow-x-auto py-3 text-sm">
+      <div className="max-w-5xl mx-auto px-5 sm:px-6">
+        <div className="flex gap-5 overflow-x-auto py-3 text-sm">
           {HUBS.map((hub) => (
             <button
               key={hub.slug}

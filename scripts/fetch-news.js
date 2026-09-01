@@ -72,13 +72,21 @@ async function synthesizeWithGemini(category, tavilyData) {
     .map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.content}`)
     .join('\n\n');
 
-  const prompt = `You are a news editor. Based ONLY on the source excerpts below about "${category}",
-write a factual, original 200-word (max) summary in your own words for a general reader.
-Do not copy sentences verbatim from the sources. Cross-reference the sources for consistency
-and skip anything that only one source reports and seems unverified.
+  const prompt = `You are the editor of a calm, trustworthy daily news briefing. Based ONLY on the
+source excerpts below about "${category}", select the most important current development and write
+a clear, original brief for a general reader.
+
+Editorial standards:
+- Write 110–180 words in two short paragraphs. Lead with what happened, then explain why it matters.
+- Be concrete: name the people, companies, places, numbers, or events that the sources support.
+- Use direct, natural language. Avoid generic openings, hype, clickbait, predictions, and phrases such
+  as "in a rapidly changing landscape" or "the sources say."
+- Do not copy sentences verbatim. Cross-reference sources for consistency; omit claims that appear
+  unverified or are supported by only one weak source.
+- If the reporting is thin or conflicting, be precise about the uncertainty rather than filling gaps.
 
 Then write:
-- An SEO title (max 60 characters)
+- A specific, informative SEO title (max 60 characters; no clickbait)
 - An SEO meta description (max 155 characters)
 
 Respond ONLY as JSON, no markdown fences, in this exact shape:
@@ -123,7 +131,40 @@ ${sourceList}`;
     throw new Error('Gemini JSON is missing required fields');
   }
 
+  const wordCount = parsed.summary.trim().split(/\s+/).filter(Boolean).length;
+  if (wordCount < 60 || wordCount > 220) {
+    throw new Error(`Gemini summary has an invalid length (${wordCount} words)`);
+  }
+
   return parsed;
+}
+
+// Tavily's news response does not provide a general video-thumbnail field.
+// When a source itself is a YouTube video, derive its stable public thumbnail.
+function getYouTubeVideoMedia(results) {
+  for (const result of results) {
+    try {
+      const url = new URL(result.url);
+      const host = url.hostname.replace(/^www\./, '');
+      let videoId;
+
+      if (host === 'youtu.be') videoId = url.pathname.split('/').filter(Boolean)[0];
+      if (host === 'youtube.com') {
+        videoId = url.searchParams.get('v') || url.pathname.match(/^\/(?:shorts|embed)\/([^/]+)/)?.[1];
+      }
+
+      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        return {
+          video_url: result.url,
+          video_thumbnail_url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        };
+      }
+    } catch {
+      // Ignore malformed source URLs and check the next result.
+    }
+  }
+
+  return { video_url: null, video_thumbnail_url: null };
 }
 
 async function upsertArticle(supabase, category, payload) {
@@ -137,6 +178,8 @@ async function upsertArticle(supabase, category, payload) {
         seo_title: payload.seo_title,
         seo_description: payload.seo_description,
         image_url: payload.image_url || null,
+        video_url: payload.video_url || null,
+        video_thumbnail_url: payload.video_thumbnail_url || null,
         sources: payload.sources,
         is_stale: false,
         fetched_at: new Date().toISOString(),
@@ -187,6 +230,7 @@ async function runDailyUpdate() {
       await upsertArticle(supabase, category, {
         ...synthesis,
         image_url: tavilyData.results.find((r) => r.images?.length)?.images?.[0] || null,
+        ...getYouTubeVideoMedia(tavilyData.results),
         sources: tavilyData.results.map((r) => ({ name: r.title, url: r.url })),
       });
 
