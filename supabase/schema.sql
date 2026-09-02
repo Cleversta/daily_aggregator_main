@@ -11,6 +11,7 @@ create table if not exists articles (
   video_url text,
   video_thumbnail_url text,
   sources jsonb not null default '[]'::jsonb, -- [{ "name": "BBC News", "url": "https://..." }]
+  creator_ideas jsonb not null default '[]'::jsonb,
   is_stale boolean not null default false,    -- true when today's fetch failed and we kept yesterday's data
   fetched_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -19,6 +20,7 @@ create table if not exists articles (
 -- Safe to run in an existing prototype project created before video support.
 alter table articles add column if not exists video_url text;
 alter table articles add column if not exists video_thumbnail_url text;
+alter table articles add column if not exists creator_ideas jsonb not null default '[]'::jsonb;
 
 -- One row per category: each day's run upserts (overwrites) the row for that category.
 create unique index if not exists articles_category_unique on articles (category);

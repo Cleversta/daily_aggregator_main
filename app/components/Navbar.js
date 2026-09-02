@@ -46,6 +46,12 @@ export default function Navbar() {
           >
             YouTube
           </Link>
+          <Link
+            href="/#creator-ideas"
+            className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-medium text-slate transition-colors hover:text-ink"
+          >
+            <span aria-hidden="true">✦</span> Creator Ideas
+          </Link>
 
           <span className="my-3 w-px shrink-0 bg-line" aria-hidden="true" />
 

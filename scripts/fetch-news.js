@@ -107,9 +107,14 @@ Editorial standards:
 Then write:
 - A specific, informative SEO title (max 60 characters; no clickbait)
 - An SEO meta description (max 155 characters)
+- Three distinct, useful creator packages based on this development. Each must include a short title,
+  a platform (TikTok, YouTube Shorts, or Instagram Reel), a hook for the first three seconds, a
+  three-step script outline, a short caption, and thumbnail text (max 5 words). Also include a
+  copy-ready prompt that brings everything together. Use only 2–3 factual points supported by the
+  sources. Do not claim something will go viral.
 
 Respond ONLY as JSON, no markdown fences, in this exact shape:
-{"summary": "...", "seo_title": "...", "seo_description": "..."}
+{"summary": "...", "seo_title": "...", "seo_description": "...", "creator_ideas": [{"title": "...", "platform": "...", "hook": "...", "outline": ["...", "...", "..."], "caption": "...", "thumbnail_text": "...", "prompt": "..."}]}
 
 SOURCES:
 ${sourceList}`;
@@ -146,7 +151,7 @@ ${sourceList}`;
     throw new Error('Gemini response was not valid JSON');
   }
 
-  if (!parsed.summary || !parsed.seo_title || !parsed.seo_description) {
+  if (!parsed.summary || !parsed.seo_title || !parsed.seo_description || !Array.isArray(parsed.creator_ideas)) {
     throw new Error('Gemini JSON is missing required fields');
   }
 
@@ -154,6 +159,20 @@ ${sourceList}`;
   if (wordCount < 60 || wordCount > 220) {
     throw new Error(`Gemini summary has an invalid length (${wordCount} words)`);
   }
+
+  parsed.creator_ideas = parsed.creator_ideas
+    .filter((idea) =>
+      idea?.title &&
+      idea?.platform &&
+      idea?.hook &&
+      Array.isArray(idea?.outline) &&
+      idea.outline.length === 3 &&
+      idea?.caption &&
+      idea?.thumbnail_text &&
+      idea?.prompt
+    )
+    .slice(0, 3);
+  if (parsed.creator_ideas.length < 3) throw new Error('Gemini returned too few creator ideas');
 
   return parsed;
 }
@@ -172,6 +191,7 @@ async function upsertArticle(supabase, category, payload) {
         image_url: null,
         video_url: null,
         video_thumbnail_url: null,
+        creator_ideas: payload.creator_ideas,
         sources: payload.sources,
         is_stale: false,
         fetched_at: new Date().toISOString(),

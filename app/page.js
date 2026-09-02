@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase-client';
 import Link from 'next/link';
 import { HUBS } from '../lib/categories';
 import HotNow from './components/HotNow';
+import CreatorIdeas from './components/CreatorIdeas';
+import TopicPreferences from './components/TopicPreferences';
 
 // Runs at build time (`next build`), not per-visitor — the CI job in
 // .github/workflows/daily-fetch.yml triggers a rebuild after the data updates.
@@ -35,6 +37,27 @@ export default async function HomePage() {
         year: 'numeric',
       }).format(recentDate)
     : null;
+  const creatorIdeas = HUBS.flatMap((hub) =>
+    hub.categories.flatMap((category) => {
+      const article = articlesByCategory[category.slug];
+      return (article?.creator_ideas || []).map((idea, index) => ({
+        ...idea,
+        id: `${category.slug}-${index}`,
+        category: `${category.icon} ${category.title}`,
+      }));
+    })
+  ).slice(0, 6);
+  const preferenceTopics = HUBS.flatMap((hub) =>
+    hub.categories
+      .filter((category) => category.active && articlesByCategory[category.slug])
+      .map((category) => ({
+        slug: category.slug,
+        title: category.title,
+        icon: category.icon,
+        headline: articlesByCategory[category.slug].headline,
+        summary: articlesByCategory[category.slug].summary,
+      }))
+  );
 
   return (
     <div className="space-y-14">
@@ -51,6 +74,10 @@ export default async function HomePage() {
       </section>
 
       <HotNow />
+
+      <TopicPreferences topics={preferenceTopics} />
+
+      <CreatorIdeas ideas={creatorIdeas} />
 
       {!hasAnyLiveArticle && (
         <p className="text-slate">
