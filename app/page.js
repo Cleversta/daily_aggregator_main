@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase-client';
 import Link from 'next/link';
 import { HUBS } from '../lib/categories';
+import HotNow from './components/HotNow';
 
 // Runs at build time (`next build`), not per-visitor — the CI job in
 // .github/workflows/daily-fetch.yml triggers a rebuild after the data updates.
@@ -49,6 +50,8 @@ export default async function HomePage() {
         </p>
       </section>
 
+      <HotNow />
+
       {!hasAnyLiveArticle && (
         <p className="text-slate">
           No briefs yet — run <code>npm run fetch-news</code> and rebuild.
@@ -66,8 +69,9 @@ export default async function HomePage() {
         return (
           <section key={hub.slug}>
             <div className="flex items-baseline justify-between gap-4 mb-5">
-              <h2 className="font-display text-2xl font-bold text-ink">
-              {hub.title}
+              <h2 className="font-display text-2xl font-bold text-ink flex items-center gap-2">
+                <span className="font-body text-xl font-normal text-wire" aria-hidden="true">{hub.icon}</span>
+                {hub.title}
               </h2>
               <span className="text-xs uppercase tracking-wide text-slate">Latest</span>
             </div>
@@ -109,7 +113,7 @@ export default async function HomePage() {
                           className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
                           style={{ background: hub.accent.pillBg, color: hub.accent.pillText }}
                         >
-                          {cat.title}
+                          <span aria-hidden="true">{cat.icon}</span> {cat.title}
                         </span>
                         {article.is_stale && (
                           <span className="text-xs text-slate">

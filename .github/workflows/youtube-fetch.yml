@@ -1,0 +1,24 @@
+name: YouTube Trends Fetch
+
+on:
+  schedule:
+    - cron: '30 5 * * *' # daily
+  workflow_dispatch: {}
+
+jobs:
+  fetch-youtube-trends:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Fetch popular YouTube videos
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_REGION_CODES: US,GB,IN,ID,BR,JP,DE,MX
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/fetch-youtube.js

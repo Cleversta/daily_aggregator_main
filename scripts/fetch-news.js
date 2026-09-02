@@ -1,7 +1,7 @@
 // scripts/fetch-news.js
 //
 // Runs once a day (triggered by .github/workflows/daily-fetch.yml).
-// For each category: search Tavily -> summarize with Gemini -> upsert into Supabase.
+// For each category: research current reporting with Tavily -> summarize with Gemini -> upsert into Supabase.
 //
 // PROTOTYPE SCOPE: intentionally limited to 3 categories (one per rough CPM tier)
 // so you can validate the whole pipeline — including AdSense review — before
@@ -13,7 +13,14 @@ const { getSupabaseAdmin } = require('../lib/supabase-admin');
 
 const CATEGORIES = ['ai', 'crypto', 'football'];
 
+const TAVILY_QUERY_BY_CATEGORY = {
+  ai: 'artificial intelligence latest news',
+  crypto: 'cryptocurrency bitcoin latest news',
+  football: 'football soccer latest news',
+};
+
 const TAVILY_URL = 'https://api.tavily.com/search';
+
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent';
 
@@ -36,39 +43,51 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
-async function searchTavily(category) {
+function getSourceName(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'Source';
+  }
+}
+
+async function getRecentTavilyResults(category) {
+  if (!process.env.TAVILY_API_KEY) throw new Error('Missing TAVILY_API_KEY');
+
   const response = await fetchWithTimeout(
     TAVILY_URL,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
+      },
       body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
-        query: `latest news about ${category.replace('-', ' ')} today`,
+        query: TAVILY_QUERY_BY_CATEGORY[category] || `${category} latest news`,
         topic: 'news',
+        time_range: 'day',
         search_depth: 'basic',
         max_results: 5,
-        include_images: true,
+        include_raw_content: false,
+        include_images: false,
       }),
     },
     REQUEST_TIMEOUT_MS
   );
 
-  if (!response.ok) {
-    throw new Error(`Tavily API responded with status ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Tavily API responded with status ${response.status}`);
 
   const data = await response.json();
+  const results = (data.results || [])
+    .filter((item) => item.title && item.url && item.content)
+    .map((item) => ({ title: item.title, url: item.url, content: item.content }));
 
-  if (!data.results || data.results.length === 0) {
-    throw new Error('Tavily returned zero results');
-  }
-
-  return data;
+  if (results.length < 2) throw new Error('Tavily returned too few usable sources');
+  return { results };
 }
 
-async function synthesizeWithGemini(category, tavilyData) {
-  const sourceList = tavilyData.results
+async function synthesizeWithGemini(category, sourceData) {
+  const sourceList = sourceData.results
     .map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.content}`)
     .join('\n\n');
 
@@ -139,34 +158,6 @@ ${sourceList}`;
   return parsed;
 }
 
-// Tavily's news response does not provide a general video-thumbnail field.
-// When a source itself is a YouTube video, derive its stable public thumbnail.
-function getYouTubeVideoMedia(results) {
-  for (const result of results) {
-    try {
-      const url = new URL(result.url);
-      const host = url.hostname.replace(/^www\./, '');
-      let videoId;
-
-      if (host === 'youtu.be') videoId = url.pathname.split('/').filter(Boolean)[0];
-      if (host === 'youtube.com') {
-        videoId = url.searchParams.get('v') || url.pathname.match(/^\/(?:shorts|embed)\/([^/]+)/)?.[1];
-      }
-
-      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
-        return {
-          video_url: result.url,
-          video_thumbnail_url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        };
-      }
-    } catch {
-      // Ignore malformed source URLs and check the next result.
-    }
-  }
-
-  return { video_url: null, video_thumbnail_url: null };
-}
-
 async function upsertArticle(supabase, category, payload) {
   const { error } = await supabase
     .from('articles')
@@ -177,9 +168,10 @@ async function upsertArticle(supabase, category, payload) {
         summary: payload.summary,
         seo_title: payload.seo_title,
         seo_description: payload.seo_description,
-        image_url: payload.image_url || null,
-        video_url: payload.video_url || null,
-        video_thumbnail_url: payload.video_thumbnail_url || null,
+        // Category visuals are used in the UI rather than republishing publisher media.
+        image_url: null,
+        video_url: null,
+        video_thumbnail_url: null,
         sources: payload.sources,
         is_stale: false,
         fetched_at: new Date().toISOString(),
@@ -213,7 +205,7 @@ async function runDailyUpdate() {
 
   for (const category of CATEGORIES) {
     // Real circuit breaker: abort the whole run if failures are stacking up
-    // (e.g. Tavily or Gemini is down), rather than burning quota on 33 guaranteed failures.
+    // (e.g. Gemini or the database is down), rather than burning quota on failures.
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       console.error(
         `🛑 ${MAX_CONSECUTIVE_FAILURES} consecutive failures. Aborting run to protect quota.`
@@ -224,14 +216,12 @@ async function runDailyUpdate() {
     console.log(`⏳ Processing [${category}]...`);
 
     try {
-      const tavilyData = await searchTavily(category);
-      const synthesis = await synthesizeWithGemini(category, tavilyData);
+      const sourceData = await getRecentTavilyResults(category);
+      const synthesis = await synthesizeWithGemini(category, sourceData);
 
       await upsertArticle(supabase, category, {
         ...synthesis,
-        image_url: tavilyData.results.find((r) => r.images?.length)?.images?.[0] || null,
-        ...getYouTubeVideoMedia(tavilyData.results),
-        sources: tavilyData.results.map((r) => ({ name: r.title, url: r.url })),
+        sources: sourceData.results.map((r) => ({ name: getSourceName(r.url), url: r.url })),
       });
 
       console.log(`✅ [${category}] updated.`);

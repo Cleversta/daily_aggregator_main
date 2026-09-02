@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase-client';
 import { getActiveCategories, getCategoryBySlug } from '../../../lib/categories';
+import RelatedYouTubeVideos from '../../components/RelatedYouTubeVideos';
 
 // Static export needs every param pre-declared at build time.
 // Only active categories get a real page; inactive ones 404 (and the Navbar
@@ -97,7 +98,7 @@ export default async function CategoryPage({ params }) {
             className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
             style={{ background: category.accent.pillBg, color: category.accent.pillText }}
           >
-            {category.title}
+            <span aria-hidden="true">{category.icon}</span> {category.title}
           </span>
           <span className="text-xs text-slate">· {category.hubTitle}</span>
           {article.is_stale && (
@@ -113,9 +114,13 @@ export default async function CategoryPage({ params }) {
           Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
         </p>
         <section className="border-y border-line py-7 mb-8">
-          <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire mb-3">The brief</p>
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire">The brief</p>
+            <span className="text-xs text-slate">Original synthesis based on linked reporting</span>
+          </div>
           <p className="text-slate leading-relaxed text-lg whitespace-pre-line">{article.summary}</p>
         </section>
+        <RelatedYouTubeVideos category={slug} />
         <div className="border-t border-line pt-6">
           <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>
           <ul className="space-y-3 text-sm">

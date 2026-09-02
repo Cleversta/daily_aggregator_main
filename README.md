@@ -7,11 +7,16 @@ works end-to-end and passes AdSense review before expanding
 
 ## What this includes
 
-- `scripts/fetch-news.js` — daily job: Tavily search → Gemini summary → Supabase upsert.
-  Fixed from the earlier draft: correct Tavily endpoint, a real circuit breaker
+- `scripts/fetch-news.js` — daily job: researches current sources with Tavily → Gemini summary → Supabase upsert.
+  It includes a real circuit breaker
   (aborts after 5 consecutive failures instead of just skipping one), a delay
   between categories, request timeouts, and a stale-content fallback so a
   failed category keeps yesterday's article live instead of going blank.
+- `scripts/fetch-youtube.js` — daily job: stores public YouTube popular-video
+  snapshots across selected global markets. YouTube has no global chart, so it
+  uses eight country charts (40 API requests per day).
+  Videos appearing in two or more markets are shown as "Hot right now" on the
+  homepage, with a full filterable trends page at `/trends`.
 - `supabase/schema.sql` — the `articles` table, one row per category, public
   read-only via row-level security.
 - `app/` — a minimal Next.js static site (App Router, `output: 'export'`)
@@ -24,15 +29,17 @@ works end-to-end and passes AdSense review before expanding
 **Requires Node.js 20+** (Next.js 16 minimum). Check with `node -v`.
 
 1. **Supabase**: create a project, then run `supabase/schema.sql` in the SQL editor.
-2. **Tavily**: get a free API key at tavily.com.
-3. **Gemini**: get a free API key at aistudio.google.com.
-4. **Local env**: `cp .env.example .env.local` and fill in all values.
+2. **Gemini**: get a free API key at aistudio.google.com.
+3. **Local env**: `cp .env.example .env.local` and fill in all values.
+4. **Tavily**: add a Tavily API key for current-source research.
 5. **Install & test the fetch script locally**:
    ```bash
    npm install
    npm run fetch-news
    ```
    Check the `articles` table in Supabase — you should see 3 rows.
+   Add `YOUTUBE_API_KEY` to `.env.local`, then run `npm run fetch-youtube` to
+   populate YouTube trends.
 6. **Run the site locally**:
    ```bash
    npm run dev
@@ -60,7 +67,7 @@ works end-to-end and passes AdSense review before expanding
 - [ ] Fetch script has run cleanly (no aborted runs) for at least a week
 - [ ] Site has been submitted for AdSense review with real (even if manually
       touched-up) content, and approved
-- [ ] Checked actual Tavily/Gemini free-tier quotas against 33 categories/day,
+- [ ] Checked actual Gemini free-tier quotas against 33 categories/day,
       not the headline numbers
 - [ ] Decided who does the daily editorial pass, and what happens if they miss a day
       (the stale-content fallback already covers this — confirm it's enough)
