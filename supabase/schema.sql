@@ -7,6 +7,7 @@ create table if not exists articles (
   summary text not null,
   seo_title text,
   seo_description text,
+  watch_next text,
   image_url text,
   video_url text,
   video_thumbnail_url text,
@@ -20,6 +21,7 @@ create table if not exists articles (
 -- Safe to run in an existing prototype project created before video support.
 alter table articles add column if not exists video_url text;
 alter table articles add column if not exists video_thumbnail_url text;
+alter table articles add column if not exists watch_next text;
 alter table articles add column if not exists creator_ideas jsonb not null default '[]'::jsonb;
 
 -- One row per category: each day's run upserts (overwrites) the row for that category.

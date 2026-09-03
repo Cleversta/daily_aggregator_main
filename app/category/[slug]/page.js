@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { supabase } from '../../../lib/supabase-client';
 import { getActiveCategories, getCategoryBySlug } from '../../../lib/categories';
 import RelatedYouTubeVideos from '../../components/RelatedYouTubeVideos';
+import SaveBrief from '../../components/SaveBrief';
 
 // Static export needs every param pre-declared at build time.
 // Only active categories get a real page; inactive ones 404 (and the Navbar
@@ -113,6 +114,9 @@ export default async function CategoryPage({ params }) {
         <p className="text-sm text-slate mb-8">
           Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
         </p>
+        <div className="mb-8 border-y border-line py-3">
+          <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
+        </div>
         <section className="border-y border-line py-7 mb-8">
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
             <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire">The brief</p>
@@ -120,6 +124,12 @@ export default async function CategoryPage({ params }) {
           </div>
           <p className="text-slate leading-relaxed text-lg whitespace-pre-line">{article.summary}</p>
         </section>
+        {article.watch_next && (
+          <section className="mb-8 rounded-lg border border-line bg-[#FCF8ED] p-5 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-wire">What to watch next</p>
+            <p className="mt-2 text-base leading-relaxed text-ink">{article.watch_next}</p>
+          </section>
+        )}
         <RelatedYouTubeVideos category={slug} />
         <div className="border-t border-line pt-6">
           <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>

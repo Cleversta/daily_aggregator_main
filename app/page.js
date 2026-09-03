@@ -4,6 +4,7 @@ import { HUBS } from '../lib/categories';
 import HotNow from './components/HotNow';
 import CreatorIdeas from './components/CreatorIdeas';
 import TopicPreferences from './components/TopicPreferences';
+import SavedItems from './components/SavedItems';
 
 // Runs at build time (`next build`), not per-visitor — the CI job in
 // .github/workflows/daily-fetch.yml triggers a rebuild after the data updates.
@@ -76,6 +77,8 @@ export default async function HomePage() {
       <HotNow />
 
       <TopicPreferences topics={preferenceTopics} />
+
+      <SavedItems />
 
       <CreatorIdeas ideas={creatorIdeas} />
 

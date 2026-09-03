@@ -107,6 +107,8 @@ Editorial standards:
 Then write:
 - A specific, informative SEO title (max 60 characters; no clickbait)
 - An SEO meta description (max 155 characters)
+- A "what to watch next" line (max 45 words) naming the next concrete development, decision,
+  date, metric, match, or announcement to follow. Do not make predictions or invent a date.
 - Three distinct, useful creator packages based on this development. Each must include a short title,
   a platform (TikTok, YouTube Shorts, or Instagram Reel), a hook for the first three seconds, a
   three-step script outline, a short caption, and thumbnail text (max 5 words). Also include a
@@ -114,7 +116,7 @@ Then write:
   sources. Do not claim something will go viral.
 
 Respond ONLY as JSON, no markdown fences, in this exact shape:
-{"summary": "...", "seo_title": "...", "seo_description": "...", "creator_ideas": [{"title": "...", "platform": "...", "hook": "...", "outline": ["...", "...", "..."], "caption": "...", "thumbnail_text": "...", "prompt": "..."}]}
+{"summary": "...", "seo_title": "...", "seo_description": "...", "watch_next": "...", "creator_ideas": [{"title": "...", "platform": "...", "hook": "...", "outline": ["...", "...", "..."], "caption": "...", "thumbnail_text": "...", "prompt": "..."}]}
 
 SOURCES:
 ${sourceList}`;
@@ -151,7 +153,7 @@ ${sourceList}`;
     throw new Error('Gemini response was not valid JSON');
   }
 
-  if (!parsed.summary || !parsed.seo_title || !parsed.seo_description || !Array.isArray(parsed.creator_ideas)) {
+  if (!parsed.summary || !parsed.seo_title || !parsed.seo_description || !parsed.watch_next || !Array.isArray(parsed.creator_ideas)) {
     throw new Error('Gemini JSON is missing required fields');
   }
 
@@ -159,6 +161,7 @@ ${sourceList}`;
   if (wordCount < 60 || wordCount > 220) {
     throw new Error(`Gemini summary has an invalid length (${wordCount} words)`);
   }
+  if (parsed.watch_next.trim().split(/\s+/).length > 55) throw new Error('Gemini watch_next is too long');
 
   parsed.creator_ideas = parsed.creator_ideas
     .filter((idea) =>
@@ -187,6 +190,7 @@ async function upsertArticle(supabase, category, payload) {
         summary: payload.summary,
         seo_title: payload.seo_title,
         seo_description: payload.seo_description,
+        watch_next: payload.watch_next,
         // Category visuals are used in the UI rather than republishing publisher media.
         image_url: null,
         video_url: null,

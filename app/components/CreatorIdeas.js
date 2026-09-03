@@ -1,9 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { readSavedItems, saveItem } from './SavedItems';
 
 export default function CreatorIdeas({ ideas }) {
   const [copied, setCopied] = useState(null);
+  const [saved, setSaved] = useState([]);
+
+  useEffect(() => {
+    setSaved(
+      ideas
+        .filter((idea) => readSavedItems().some((item) => item.id === `prompt-${idea.id}`))
+        .map((idea) => idea.id)
+    );
+  }, [ideas]);
 
   async function copyPrompt(id, prompt) {
     try {
@@ -13,6 +23,11 @@ export default function CreatorIdeas({ ideas }) {
     } catch {
       setCopied(null);
     }
+  }
+
+  function savePrompt(idea) {
+    saveItem({ id: `prompt-${idea.id}`, type: 'prompt', title: idea.title, description: idea.hook, content: idea.prompt, savedAt: Date.now() });
+    setSaved((current) => current.includes(idea.id) ? current : [...current, idea.id]);
   }
 
   if (ideas.length === 0) return null;
@@ -62,6 +77,14 @@ export default function CreatorIdeas({ ideas }) {
               className="mt-5 rounded-md border border-ink px-3 py-2 text-xs font-bold uppercase tracking-wide text-ink transition-colors hover:bg-ink hover:text-white"
             >
               {copied === idea.id ? 'Copied' : 'Copy prompt'}
+            </button>
+            <button
+              type="button"
+              onClick={() => savePrompt(idea)}
+              disabled={saved.includes(idea.id)}
+              className="ml-3 mt-5 text-xs font-bold uppercase tracking-wide text-ink hover:text-wire disabled:cursor-default disabled:text-slate"
+            >
+              {saved.includes(idea.id) ? 'Saved ✓' : 'Save prompt ＋'}
             </button>
           </article>
         ))}
