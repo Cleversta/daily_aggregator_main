@@ -47,6 +47,14 @@ export default function Navbar() {
             YouTube
           </Link>
           <Link
+            href="/topics"
+            className={`flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
+              pathname === '/topics' || pathname.startsWith('/topic/') ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
+            }`}
+          >
+            Topics
+          </Link>
+          <Link
             href="/#creator-ideas"
             className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-medium text-slate transition-colors hover:text-ink"
           >

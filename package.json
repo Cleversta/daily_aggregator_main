@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "fetch-news": "node scripts/fetch-news.js",
-    "fetch-youtube": "node scripts/fetch-youtube.js"
+    "fetch-youtube": "node scripts/fetch-youtube.js",
+    "fetch-topics": "node scripts/fetch-topics.js",
+    "fetch-topics:all": "node scripts/fetch-topics.js --all"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
