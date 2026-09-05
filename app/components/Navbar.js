@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HUBS } from '../../lib/categories';
@@ -9,6 +9,33 @@ export default function Navbar() {
   const [openHub, setOpenHub] = useState(null);
   const pathname = usePathname();
   const selectedHub = HUBS.find((hub) => hub.slug === openHub);
+
+  const trackRef = useRef(null);
+  const [showLeftFade, setShowLeftFade] = useState(false);
+  const [showRightFade, setShowRightFade] = useState(false);
+
+  const updateFades = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    setShowLeftFade(el.scrollLeft > 4);
+    setShowRightFade(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateFades();
+    const el = trackRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateFades, { passive: true });
+    window.addEventListener('resize', updateFades);
+    return () => {
+      el.removeEventListener('scroll', updateFades);
+      window.removeEventListener('resize', updateFades);
+    };
+  }, []);
+
+  const scrollByAmount = (dir) => {
+    trackRef.current?.scrollBy({ left: dir * 160, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     setOpenHub(null);
@@ -28,8 +55,37 @@ export default function Navbar() {
 
   return (
     <nav className="relative border-b border-line bg-paper" aria-label="Primary navigation">
-      <div className="max-w-5xl mx-auto px-5 sm:px-6">
-        <div className="flex min-h-14 items-stretch gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="relative max-w-5xl mx-auto px-5 sm:px-6">
+        {showLeftFade && (
+          <>
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-paper to-transparent" />
+            <button
+              type="button"
+              onClick={() => scrollByAmount(-1)}
+              aria-label="Scroll navigation left"
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full border border-line bg-paper flex items-center justify-center text-sm text-slate hover:text-ink"
+            >
+              ‹
+            </button>
+          </>
+        )}
+        {showRightFade && (
+          <>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-paper to-transparent" />
+            <button
+              type="button"
+              onClick={() => scrollByAmount(1)}
+              aria-label="Scroll navigation right"
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-20 h-6 w-6 rounded-full border border-line bg-paper flex items-center justify-center text-sm text-slate hover:text-ink"
+            >
+              ›
+            </button>
+          </>
+        )}
+        <div
+          ref={trackRef}
+          className="flex min-h-14 items-stretch gap-1 overflow-x-auto [scrollbar-width:thin] [scrollbar-color:#E4E0D6_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-line [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate"
+        >
           <Link
             href="/"
             className={`flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
