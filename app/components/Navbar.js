@@ -4,11 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HUBS } from '../../lib/categories';
+import { useLastVisit, isNewSince } from './Freshness';
 
-export default function Navbar() {
+export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) {
   const [openHub, setOpenHub] = useState(null);
   const pathname = usePathname();
   const selectedHub = HUBS.find((hub) => hub.slug === openHub);
+  const lastVisit = useLastVisit();
+
+  const isCategoryNew = (category) => isNewSince(categoryFreshness[category.slug], lastVisit);
+  const isHubNew = (hub) => hub.categories.some((category) => category.active && isCategoryNew(category));
+  const hasNewTopics = topicFreshness.some((updatedAt) => isNewSince(updatedAt, lastVisit));
 
   const trackRef = useRef(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
@@ -104,11 +110,17 @@ export default function Navbar() {
           </Link>
           <Link
             href="/topics"
-            className={`flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
+            className={`relative flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
               pathname === '/topics' || pathname.startsWith('/topic/') ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
             }`}
           >
             Topics
+            {hasNewTopics && (
+              <span
+                className="absolute right-0 top-1.5 h-1.5 w-1.5 rounded-full bg-alert"
+                aria-label="New topic changes"
+              />
+            )}
           </Link>
           <Link
             href="/#creator-ideas"
@@ -122,6 +134,7 @@ export default function Navbar() {
           {HUBS.map((hub) => {
             const isOpen = openHub === hub.slug;
             const active = isHubActive(hub);
+            const hasNew = isHubNew(hub);
 
             return (
               <button
@@ -130,12 +143,18 @@ export default function Navbar() {
                 onClick={() => setOpenHub(isOpen ? null : hub.slug)}
                 aria-expanded={isOpen}
                 aria-controls={`hub-menu-${hub.slug}`}
-                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors ${
+                className={`relative flex shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors ${
                   isOpen || active ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
                 }`}
               >
                 <span aria-hidden="true" className="text-base leading-none">{hub.icon}</span>
                 {hub.title}
+                {hasNew && (
+                  <span
+                    className="absolute right-0.5 top-1.5 h-1.5 w-1.5 rounded-full bg-alert"
+                    aria-label="New stories in this section"
+                  />
+                )}
                 <svg
                   className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                   viewBox="0 0 16 16"
@@ -175,13 +194,18 @@ export default function Navbar() {
                   <Link
                     key={category.slug}
                     href={`/category/${category.slug}`}
-                    className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                       pathname === `/category/${category.slug}`
                         ? 'border-ink bg-ink text-white'
                         : 'border-line bg-paper text-ink hover:border-wire hover:bg-[#FCF8ED]'
                     }`}
                 >
                   <span aria-hidden="true">{category.icon}</span> {category.title}
+                  {isCategoryNew(category) && (
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wide text-alert">
+                      New
+                    </span>
+                  )}
                   </Link>
                 ) : (
                   <span

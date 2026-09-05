@@ -9,6 +9,7 @@ module.exports = {
         wire: '#B08D3E',
         slate: '#5B5647',
         line: '#E4E0D6',
+        alert: '#E0332B',
       },
       fontFamily: {
         display: ['Georgia', 'Cambria', 'serif'],

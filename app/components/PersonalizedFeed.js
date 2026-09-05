@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FreshnessProvider, NewBadge } from './Freshness';
+import { NewBadge } from './Freshness';
 
 const TOPICS_STORAGE_KEY = 'daily-aggregator-topics';
 
@@ -30,7 +30,7 @@ export default function PersonalizedFeed({ hubs, articlesByCategory }) {
   })();
 
   return (
-    <FreshnessProvider>
+    <>
       {orderedHubs.map((hub) => {
         const activeInHub = hub.categories.filter((c) => c.active);
         const comingSoonInHub = hub.categories.filter((c) => !c.active);
@@ -121,6 +121,6 @@ export default function PersonalizedFeed({ hubs, articlesByCategory }) {
           </section>
         );
       })}
-    </FreshnessProvider>
+    </>
   );
 }

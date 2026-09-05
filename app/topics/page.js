@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase-client';
 import { HUBS } from '../../lib/categories';
 import { getAllTopics } from '../../lib/topics';
+import { NewBadge, IfNew } from '../components/Freshness';
 
 export const metadata = {
   title: 'Topics — Reference Guides',
@@ -9,7 +10,9 @@ export const metadata = {
 };
 
 async function getTopicRows() {
-  const { data, error } = await supabase.from('topics').select('slug, snapshot_summary, freshness_note, is_stale');
+  const { data, error } = await supabase
+    .from('topics')
+    .select('slug, snapshot_summary, freshness_note, is_stale, last_updated_at, change_summary');
 
   if (error) {
     console.error('Failed to load topics at build time:', error.message);
@@ -73,6 +76,7 @@ export default async function TopicsIndexPage() {
                       <span className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
                         {topic.topicCategory.replace(/-/g, ' ')}
                       </span>
+                      <NewBadge fetchedAt={row.last_updated_at} />
                       {row.is_stale && <span className="text-xs text-amber-600">stale</span>}
                     </div>
                     <h3 className="font-display text-lg font-bold text-ink leading-snug mb-2">
@@ -80,6 +84,11 @@ export default async function TopicsIndexPage() {
                     </h3>
                     {row.snapshot_summary && (
                       <p className="text-sm text-slate leading-relaxed line-clamp-3">{row.snapshot_summary}</p>
+                    )}
+                    {row.change_summary && (
+                      <IfNew fetchedAt={row.last_updated_at}>
+                        <p className="text-xs text-alert mt-2 line-clamp-2">Changed: {row.change_summary}</p>
+                      </IfNew>
                     )}
                     <div className="flex items-center justify-between mt-4">
                       {row.freshness_note && <span className="text-xs text-slate">{row.freshness_note}</span>}

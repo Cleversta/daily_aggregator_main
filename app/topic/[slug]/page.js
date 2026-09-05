@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase-client';
 import { getAllTopics, getTopicBySlug } from '../../../lib/topics';
+import { NewBadge } from '../../components/Freshness';
 
 // Static export needs every param pre-declared at build time — every topic
 // gets a page (unlike categories, there's no active/inactive split here
@@ -65,6 +66,7 @@ export default async function TopicPage({ params }) {
           <span className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
             {topic.topicCategory.replace(/-/g, ' ')}
           </span>
+          <NewBadge fetchedAt={row.last_updated_at} />
           {row.freshness_note && (
             <span className="text-xs text-slate">
               {row.freshness_note}

@@ -1,5 +1,7 @@
 import './globals.css';
+import { supabase } from '../lib/supabase-client';
 import Navbar from './components/Navbar';
+import { FreshnessProvider } from './components/Freshness';
 
 export const metadata = {
   title: 'Daily Aggregator',
@@ -11,7 +13,42 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+// Runs at build time, same as page.js's getArticlesByCategory — just the two
+// columns Navbar needs to decide which hubs/categories to flag as new.
+async function getCategoryFreshness() {
+  const { data, error } = await supabase.from('articles').select('category, fetched_at');
+
+  if (error) {
+    console.error('Failed to load category freshness at build time:', error.message);
+    return {};
+  }
+
+  const freshness = {};
+  for (const row of data || []) {
+    freshness[row.category] = row.fetched_at;
+  }
+  return freshness;
+}
+
+// Only last_updated_at (bumps on real content changes) — not last_checked_at,
+// which bumps on every check even when nothing changed.
+async function getTopicFreshness() {
+  const { data, error } = await supabase.from('topics').select('last_updated_at');
+
+  if (error) {
+    console.error('Failed to load topic freshness at build time:', error.message);
+    return [];
+  }
+
+  return (data || []).map((row) => row.last_updated_at).filter(Boolean);
+}
+
+export default async function RootLayout({ children }) {
+  const [categoryFreshness, topicFreshness] = await Promise.all([
+    getCategoryFreshness(),
+    getTopicFreshness(),
+  ]);
+
   return (
     <html lang="en">
       <body className="bg-paper text-ink font-body" suppressHydrationWarning>
@@ -28,8 +65,10 @@ export default function RootLayout({ children }) {
             </span>
           </div>
         </header>
-        <Navbar />
-        <main className="max-w-5xl mx-auto px-5 sm:px-6 py-12">{children}</main>
+        <FreshnessProvider>
+          <Navbar categoryFreshness={categoryFreshness} topicFreshness={topicFreshness} />
+          <main className="max-w-5xl mx-auto px-5 sm:px-6 py-12">{children}</main>
+        </FreshnessProvider>
         <footer className="border-t border-line mt-16">
           <div className="max-w-5xl mx-auto px-5 sm:px-6 py-8 text-sm text-slate">
             <p>Daily summaries are original syntheses based on linked reporting. Check the original sources for the full story.</p>
