@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 
-// Posts to a Netlify Function, not a Next.js API route — this site is a
-// static export (output: 'export' in next.config.js) and has no server.
-// No account is created here; this is a mailing list, and the confirm link
-// email is the only verification step.
+// Posts to a Cloudflare Pages Function at /subscribe (file-based routing:
+// functions/subscribe.js). This site is a static export (output: 'export'
+// in next.config.js) and has no server of its own — the Function is what
+// handles the actual signup. No account is created here; this is a mailing
+// list, and the confirm link email is the only verification step.
 export default function Subscribe({ categorySlug }) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | done | error
@@ -17,7 +18,7 @@ export default function Subscribe({ categorySlug }) {
     setMessage('');
 
     try {
-      const response = await fetch('/.netlify/functions/subscribe', {
+      const response = await fetch('/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

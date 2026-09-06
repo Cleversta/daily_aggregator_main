@@ -8,12 +8,17 @@
 // This is a mailing list, not an account system: subscribers have no
 // password and never log in. The per-email unsubscribe link's token is the
 // only "auth" involved.
+//
+// NOTE: this script itself runs on GitHub Actions (Node), not on
+// Cloudflare/Netlify — only the confirm/unsubscribe *link paths* below
+// changed to match Cloudflare Pages Functions routing (no
+// /.netlify/functions/ prefix needed there).
 
 require('dotenv').config({ path: '.env.local' });
 const { getSupabaseAdmin } = require('../lib/supabase-admin');
 const { getActiveCategories } = require('../lib/categories');
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gator.online';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://dailyaggregator.online';
 const RESEND_URL = 'https://api.resend.com/emails';
 const REQUEST_TIMEOUT_MS = 20000;
 // Resend's free tier caps at 2 req/sec — stay well under that between sends.
@@ -70,7 +75,7 @@ function renderDigestHtml(articlesByCategory, activeCategories, unsubscribeUrl) 
 </html>`;
 }
 
-async function sendEmail(to, html) {
+async function sendEmail(env, to, html) {
   const response = await fetchWithTimeout(
     RESEND_URL,
     {
@@ -80,7 +85,7 @@ async function sendEmail(to, html) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.DIGEST_FROM_EMAIL || 'Daily Aggregator <digest@example.com>',
+        from: process.env.DIGEST_FROM_EMAIL || 'Daily Aggregator <digest@dailyaggregator.online>',
         to,
         subject: "Today's briefing — Daily Aggregator",
         html,
@@ -137,11 +142,13 @@ async function main() {
     const hasContent = wanted.some((c) => articlesByCategory[c.slug]);
     if (!hasContent) continue;
 
-    const unsubscribeUrl = `${SITE_URL}/.netlify/functions/unsubscribe?token=${subscriber.token}`;
+    // Cloudflare Pages Functions route: /unsubscribe (no /.netlify/functions/
+    // prefix — that was Netlify-specific).
+    const unsubscribeUrl = `${SITE_URL}/unsubscribe?token=${subscriber.token}`;
     const html = renderDigestHtml(articlesByCategory, wanted, unsubscribeUrl);
 
     try {
-      await sendEmail(subscriber.email, html);
+      await sendEmail(process.env, subscriber.email, html);
       sent += 1;
     } catch (err) {
       failed += 1;
