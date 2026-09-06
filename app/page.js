@@ -5,6 +5,7 @@ import CreatorIdeas from './components/CreatorIdeas';
 import TopicPreferences from './components/TopicPreferences';
 import SavedItems from './components/SavedItems';
 import PersonalizedFeed from './components/PersonalizedFeed';
+import Subscribe from './components/Subscribe';
 
 // Runs at build time (`next build`), not per-visitor — the CI job in
 // .github/workflows/daily-fetch.yml triggers a rebuild after the data updates.
@@ -72,6 +73,13 @@ export default async function HomePage() {
         <p className="text-slate text-lg leading-relaxed mt-5 max-w-2xl">
           A focused daily read across the topics that matter to you. Every brief links back to the reporting behind it.
         </p>
+      </section>
+
+      <section className="border-b border-line pb-10">
+        <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-2">Get it in your inbox</p>
+        <h2 className="font-display text-2xl font-bold text-ink mb-3">Never miss a briefing.</h2>
+        <p className="text-slate mb-4 max-w-xl">One email, every morning, with the day's essential stories.</p>
+        <Subscribe />
       </section>
 
       <HotNow />
