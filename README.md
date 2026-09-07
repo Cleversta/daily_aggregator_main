@@ -1,84 +1,125 @@
-# Daily Aggregator — 3-category prototype
+# Daily Aggregator
 
-This is the scoped-down starting point we agreed on: **3 categories** (`ai`,
-`crypto`, `football` — one per rough ad-CPM tier), not all 33. Prove this
-works end-to-end and passes AdSense review before expanding
-`CATEGORIES` in `scripts/fetch-news.js`.
+Live at [dailyaggregator.online](https://dailyaggregator.online) — a once-a-day
+briefing site. Started as a 3-category prototype (`ai`, `crypto`, `football`)
+and has grown into a static Next.js site with an email digest, an evergreen
+"Topics" reference section, and AI-prompt "Creator studio" cards for each
+brief, hosted on Cloudflare Pages.
 
-## What this includes
+## What's live right now
 
-- `scripts/fetch-news.js` — daily job: researches current sources with Tavily → Gemini summary → Supabase upsert.
-  It includes a real circuit breaker
-  (aborts after 5 consecutive failures instead of just skipping one), a delay
-  between categories, request timeouts, and a stale-content fallback so a
-  failed category keeps yesterday's article live instead of going blank.
-- `scripts/fetch-youtube.js` — daily job: stores public YouTube popular-video
-  snapshots across selected global markets. YouTube has no global chart, so it
-  uses eight country charts (40 API requests per day).
-  Videos appearing in two or more markets are shown as "Hot right now" on the
-  homepage, with a full filterable trends page at `/trends`.
-- `supabase/schema.sql` — the `articles` table, one row per category, public
-  read-only via row-level security.
-- `app/` — a minimal Next.js static site (App Router, `output: 'export'`)
-  that reads from Supabase **at build time** and renders flat HTML.
-- `.github/workflows/daily-fetch.yml` — runs the fetch script at 5:00 AM UTC,
-  then pings a Netlify build hook to rebuild the static site.
+- **3 active categories** out of a planned 33: `ai`, `crypto`, `football`
+  (see `lib/categories.js` for the full 6-hub map — everything else renders
+  as "coming soon" in the nav until it's turned on).
+- **Daily briefs** — Tavily research → Gemini summary → Supabase, rendered as
+  a static site.
+- **YouTube trends** (`/youtube`) — daily popular-video snapshots across 8
+  country charts; videos trending in 2+ markets surface as "Hot right now."
+- **Topics** (`/topics`, `/topic/[slug]`) — 100 evergreen reference pages
+  (e.g. Claude AI, Bitcoin) refreshed on a 5-day rotation, isolated from the
+  daily pipeline's API quota.
+- **Creator studio** — ready-to-use AI prompts (YouTube Shorts, TikTok,
+  Instagram Reel scripts) generated per brief, with copy/save-to-browser
+  functionality.
+- **Email digest** — no-login mailing list (Supabase `subscribers` table +
+  Resend) with confirm/unsubscribe via token links, sent once a day.
+- Static pages: `/about`, `/editorial-policy`, `/privacy`, `/contact`, plus
+  `/feed.xml`, `/robots.txt`, and a generated sitemap.
+
+## Architecture
+
+- **Frontend**: Next.js (App Router, `output: 'export'`) — reads Supabase
+  **at build time** and ships flat HTML. No server-side rendering at runtime.
+- **Hosting**: **Cloudflare Pages** (migrated from Netlify — see
+  `CLOUDFLARE_MIGRATION.md` for the history). `wrangler.jsonc` points at the
+  `out/` build directory.
+- **Serverless functions**: `functions/` (Cloudflare Pages Functions) handle
+  `subscribe` / `confirm` / `unsubscribe`. The old `netlify/functions/`
+  equivalents are still in the repo but unused — safe to delete once you've
+  confirmed Cloudflare is fully cut over.
+- **Data**: Supabase (Postgres), row-level security on, all writes go through
+  the service-role key server-side — never the browser anon key.
+- **Content pipelines** (all in `scripts/`, run as scheduled jobs):
+  - `fetch-news.js` — daily briefs. Circuit breaker (aborts after 5
+    consecutive failures), per-category timeouts, stale-content fallback
+    (a failed category keeps yesterday's article instead of going blank).
+  - `fetch-youtube.js` — YouTube trend snapshots.
+  - `fetch-topics.js` — the 100-topic rotation (`--all` flag seeds every
+    topic at once instead of waiting for the 5-day cycle).
+  - `send-digest.js` — emails confirmed subscribers their daily categories
+    via Resend.
+
+## GitHub Actions (what's actually automated)
+
+- `.github/workflows/daily-fetch.yml` — runs `fetch-news.js` at 5:00 AM UTC,
+  then hits a Cloudflare Pages deploy hook to rebuild the site.
+- `.github/workflows/youtube-fetch.yml` — runs `fetch-youtube.js` daily at
+  5:30 AM UTC.
+- **Not yet automated**: `fetch-topics.js` and `send-digest.js` have no
+  workflow file — they currently need to be run manually (or you can add
+  steps/schedules for them; see `readme_topic.md` for a suggested workflow
+  snippet for topics).
 
 ## Setup
 
 **Requires Node.js 20+** (Next.js 16 minimum). Check with `node -v`.
 
-1. **Supabase**: create a project, then run `supabase/schema.sql` in the SQL editor.
-2. **Gemini**: get a free API key at aistudio.google.com.
-3. **Local env**: `cp .env.example .env.local` and fill in all values.
-4. **Tavily**: add a Tavily API key for current-source research.
-5. **Install & test the fetch script locally**:
+1. **Supabase**: create a project, then run `supabase/schema.sql` and
+   `supabase/subscribers.sql` in the SQL editor. If you want Topics too,
+   also run `supabase/topics_schema.sql` (see `readme_topic.md`).
+2. **API keys**: Gemini (aistudio.google.com), Tavily (tavily.com), YouTube
+   Data API, and Resend (for the digest email).
+3. **Local env**: `cp .env.example .env.local` and fill in every value.
+   Note the example file is missing a few keys the code actually uses —
+   add these too:
+   ```
+   NEXT_PUBLIC_SITE_URL=https://dailyaggregator.online
+   RESEND_API_KEY=your_resend_api_key
+   DIGEST_FROM_EMAIL=Daily Aggregator <digest@dailyaggregator.online>
+   ```
+   And if you're running Topics, its own **separate, dedicated** free-tier
+   keys (do not reuse your news-pipeline keys — see `readme_topic.md`):
+   ```
+   TAVILY_TOPICS_API_KEY=your_new_tavily_key
+   GEMINI_TOPICS_API_KEY=your_new_gemini_key
+   ```
+4. **Install & test the pipelines locally**:
    ```bash
    npm install
-   npm run fetch-news
+   npm run fetch-news        # should populate 3 rows in `articles`
+   npm run fetch-youtube     # populates YouTube trend snapshots
+   npm run fetch-topics      # today's ~20-topic rotation (needs topics_schema.sql)
+   npm run fetch-topics:all  # one-time: seed all 100 topics at once
+   npm run send-digest       # emails confirmed subscribers (needs subscribers.sql + Resend)
    ```
-   Check the `articles` table in Supabase — you should see 3 rows.
-   Add `YOUTUBE_API_KEY` to `.env.local`, then run `npm run fetch-youtube` to
-   populate YouTube trends.
-6. **Run the site locally**:
-   ```bash
-   npm run dev
-   ```
-7. **Deploy**: push to GitHub, connect the repo to Netlify (build command
-   `npm run build`, publish directory `out`), then add the same env vars as
-   GitHub Actions secrets (Settings → Secrets and variables → Actions) plus
-   a Netlify build hook URL as `NETLIFY_BUILD_HOOK_URL`.
+5. **Run the site locally**: `npm run dev`
+6. **Deploy**: connect the repo to Cloudflare Pages (Workers & Pages →
+   Create → Pages → Connect to Git; framework preset "Next.js (Static HTML
+   Export)"; build command `npm run build`; output directory `out`). Add all
+   the env vars above as Pages environment variables, and add the same
+   secrets under GitHub Actions (Settings → Secrets and variables →
+   Actions), plus a `CLOUDFLARE_DEPLOY_HOOK_URL` secret for the rebuild step.
+   Full step-by-step in `CLOUDFLARE_MIGRATION.md`.
 
-## UI included
+## Known limitations
 
-- `lib/categories.js` — the full 6-hub/33-category map from the approved nav
-  design, with `active: true` on the 3 live categories. Add `active: true`
-  to more categories here as you expand `CATEGORIES` in `scripts/fetch-news.js`
-  — no other UI changes needed.
-- `app/components/Navbar.js` — tap a hub to expand its categories; live ones
-  link out, inactive ones show as "soon" instead of a dead link.
-- `app/page.js` — homepage grouped by hub, only showing hubs with at least
-  one live category, with a "coming soon" line listing the rest.
-- `app/category/[slug]/page.js` — full detail page per category (headline,
-  optional image or video thumbnail, summary, sources), statically generated for active categories only.
+- No editorial-review admin dashboard — review rows directly in the
+  Supabase table editor before a rebuild if you want to hand-edit anything.
+- No image optimization (static export doesn't support Next's image API) —
+  images and video thumbnails render as plain `<img>` elements.
+- `fetch-news.js` makes a single Gemini call per category with no retry —
+  a transient failure marks that category stale for the day. (`fetch-topics.js`
+  is more robust here: longer timeouts, retries with backoff, and strict
+  JSON response mode — see `readme_topic.md`.)
+- Topics and digest sends aren't on a GitHub Actions schedule yet — manual
+  `npm run` for now.
+- Old `netlify/functions/` and Netlify-specific config are still in the repo
+  but dead weight post-migration — safe to delete once Cloudflare is
+  confirmed stable.
 
-## Before scaling to 33 categories
+## Before scaling past 3 categories
 
 - [ ] Fetch script has run cleanly (no aborted runs) for at least a week
-- [ ] Site has been submitted for AdSense review with real (even if manually
-      touched-up) content, and approved
-- [ ] Checked actual Gemini free-tier quotas against 33 categories/day,
-      not the headline numbers
+- [ ] Site passed AdSense review with real content
+- [ ] Checked actual Gemini free-tier quotas against 33 categories/day
 - [ ] Decided who does the daily editorial pass, and what happens if they miss a day
-      (the stale-content fallback already covers this — confirm it's enough)
-
-## Known limitations of this prototype
-
-- No editorial-review admin dashboard yet — the "5-minute human pass" from
-  the risk mitigation plan isn't built. For now, review rows directly in the
-  Supabase table editor before the site rebuilds if you want to hand-edit anything.
-- No image optimization (static export doesn't support Next's image API) —
-  images and video thumbnails render as plain `<img>` elements. Video thumbnails
-  are currently detected for YouTube source links only.
-- Single Gemini call per category, no retry-with-backoff — a transient
-  failure marks that category stale for the day rather than retrying.
