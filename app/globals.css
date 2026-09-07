@@ -4,6 +4,15 @@
 
 html {
   background-color: #F3F1EC;
+  /* FIX: without this, the whole page (not just the nav row) becomes
+     horizontally scrollable whenever any child is wider than the viewport —
+     which is what let the header/title get dragged off-screen on mobile. */
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+  width: 100%;
 }
 
 @keyframes fadeSlideDown {
