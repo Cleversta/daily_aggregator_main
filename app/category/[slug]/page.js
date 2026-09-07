@@ -2,14 +2,44 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase-client';
 import { getActiveCategories, getCategoryBySlug } from '../../../lib/categories';
+import { getAllTopics } from '../../../lib/topics';
+import { getRelatedTopicSlugs } from '../../../lib/related-topics';
 import RelatedYouTubeVideos from '../../components/RelatedYouTubeVideos';
 import SaveBrief from '../../components/SaveBrief';
+import ShareButtons from '../../components/ShareButtons';
 
 // Static export needs every param pre-declared at build time.
 // Only active categories get a real page; inactive ones 404 (and the Navbar
 // never links to them in the first place — they show as "soon" instead).
 export async function generateStaticParams() {
   return getActiveCategories().map((c) => ({ slug: c.slug }));
+}
+
+async function getRelatedTopics(category) {
+  const candidateSlugs = getRelatedTopicSlugs(category, getAllTopics(), 3);
+  if (candidateSlugs.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('topics')
+    .select('slug, snapshot_summary')
+    .in('slug', candidateSlugs);
+
+  if (error) {
+    console.error(`Failed to load related topics for [${category.slug}] at build time:`, error.message);
+    return [];
+  }
+
+  const bySlug = Object.fromEntries((data || []).map((row) => [row.slug, row]));
+  const allTopics = getAllTopics();
+  // Preserve the priority order from getRelatedTopicSlugs, drop any topic
+  // that doesn't have live content yet.
+  return candidateSlugs
+    .filter((slug) => bySlug[slug])
+    .map((slug) => ({
+      slug,
+      topicName: allTopics.find((t) => t.slug === slug)?.topicName || slug,
+      snapshot_summary: bySlug[slug].snapshot_summary,
+    }));
 }
 
 async function getArticle(slug) {
@@ -46,6 +76,7 @@ export default async function CategoryPage({ params }) {
   }
 
   const article = await getArticle(slug);
+  const relatedTopics = article ? await getRelatedTopics(category) : [];
 
   if (!article) {
     return (
@@ -114,8 +145,9 @@ export default async function CategoryPage({ params }) {
         <p className="text-sm text-slate mb-8">
           Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
         </p>
-        <div className="mb-8 border-y border-line py-3">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-y border-line py-3">
           <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
+          <ShareButtons title={article.headline} />
         </div>
         <section className="border-y border-line py-7 mb-8">
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -131,6 +163,30 @@ export default async function CategoryPage({ params }) {
           </section>
         )}
         <RelatedYouTubeVideos category={slug} />
+
+        {relatedTopics.length > 0 && (
+          <section className="mb-8">
+            <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire mb-3">Go deeper</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {relatedTopics.map((topic) => (
+                <Link
+                  key={topic.slug}
+                  href={`/topic/${topic.slug}`}
+                  className="block rounded-lg border border-line bg-white p-4 transition-colors hover:border-wire hover:bg-[#FCF8ED]"
+                >
+                  <p className="font-display font-bold text-ink text-sm leading-snug">{topic.topicName}</p>
+                  {topic.snapshot_summary && (
+                    <p className="mt-1.5 text-xs text-slate leading-relaxed line-clamp-2">{topic.snapshot_summary}</p>
+                  )}
+                  <span className="mt-2 inline-block text-[10px] font-bold uppercase tracking-wide text-ink">
+                    Read topic →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="border-t border-line pt-6">
           <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>
           <ul className="space-y-3 text-sm">

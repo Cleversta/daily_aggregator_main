@@ -2,7 +2,10 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase-client';
 import { getAllTopics, getTopicBySlug } from '../../../lib/topics';
+import { getCategoryBySlug } from '../../../lib/categories';
+import { getRelatedCategorySlug } from '../../../lib/related-topics';
 import { NewBadge } from '../../components/Freshness';
+import ShareButtons from '../../components/ShareButtons';
 
 // Static export needs every param pre-declared at build time — every topic
 // gets a page (unlike categories, there's no active/inactive split here
@@ -10,6 +13,23 @@ import { NewBadge } from '../../components/Freshness';
 // at least once).
 export async function generateStaticParams() {
   return getAllTopics().map((t) => ({ slug: t.slug }));
+}
+
+async function getRelatedArticle(topic) {
+  const categorySlug = getRelatedCategorySlug(topic);
+  if (!categorySlug) return null;
+
+  const category = getCategoryBySlug(categorySlug);
+  if (!category || !category.active) return null;
+
+  const { data, error } = await supabase
+    .from('articles')
+    .select('category, headline, summary')
+    .eq('category', categorySlug)
+    .single();
+
+  if (error) return null;
+  return { ...data, categoryTitle: category.title, categoryIcon: category.icon };
 }
 
 async function getTopicRow(slug) {
@@ -40,6 +60,7 @@ export default async function TopicPage({ params }) {
   if (!topic) notFound();
 
   const row = await getTopicRow(slug);
+  const relatedArticle = row ? await getRelatedArticle(topic) : null;
 
   if (!row) {
     return (
@@ -79,8 +100,12 @@ export default async function TopicPage({ params }) {
         <h1 className="font-display text-3xl font-bold text-ink mb-5 leading-tight">{topic.topicName}</h1>
 
         {row.snapshot_summary && (
-          <p className="text-slate leading-relaxed text-lg mb-8">{row.snapshot_summary}</p>
+          <p className="text-slate leading-relaxed text-lg mb-6">{row.snapshot_summary}</p>
         )}
+
+        <div className="mb-8 flex items-center justify-end border-y border-line py-3">
+          <ShareButtons title={topic.topicName} />
+        </div>
 
         {row.background && (
           <section className="border-y border-line py-7 mb-8">
@@ -143,6 +168,24 @@ export default async function TopicPage({ params }) {
             Since last update: {row.change_summary}
             {updatedDate && fmt(updatedDate) ? ` (${fmt(updatedDate)})` : ''}
           </p>
+        )}
+
+        {relatedArticle && (
+          <section className="mb-8">
+            <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire mb-3">In today&apos;s briefing</p>
+            <Link
+              href={`/category/${relatedArticle.category}`}
+              className="block rounded-lg border border-line bg-white p-4 transition-colors hover:border-wire hover:bg-[#FCF8ED]"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wide text-wire">
+                <span aria-hidden="true">{relatedArticle.categoryIcon}</span> {relatedArticle.categoryTitle}
+              </p>
+              <p className="mt-1.5 font-display font-bold text-ink leading-snug">{relatedArticle.headline}</p>
+              <span className="mt-2 inline-block text-[10px] font-bold uppercase tracking-wide text-ink">
+                Read brief →
+              </span>
+            </Link>
+          </section>
         )}
 
         {Array.isArray(row.sources) && row.sources.length > 0 && (

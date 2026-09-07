@@ -34,7 +34,7 @@ export default function TopicsBrowser({ topics, hubs }) {
   return (
     <div>
       {/* Controls */}
-      <div className="sticky top-0 z-10 -mx-4 mb-8 border-b border-line bg-[#FCF8ED]/95 px-4 py-4 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-5">
+      <div className="sticky top-0 z-10 -mx-5 mb-8 border-b border-line bg-[#FCF8ED]/95 px-5 py-4 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <input
             type="text"
@@ -42,7 +42,7 @@ export default function TopicsBrowser({ topics, hubs }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search all 100 topics…"
             aria-label="Search topics"
-            className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-slate-400 focus:border-wire focus:outline-none sm:max-w-sm"
+            className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-base text-ink placeholder:text-slate-400 focus:border-wire focus:outline-none sm:max-w-sm sm:text-sm"
           />
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <span className="text-xs text-slate">{filtered.length} topic{filtered.length === 1 ? '' : 's'}</span>

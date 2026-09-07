@@ -1,6 +1,8 @@
 import './globals.css';
 import { supabase } from '../lib/supabase-client';
 import Navbar from './components/Navbar';
+import SearchTrigger from './components/Search';
+import NextBrief from './components/NextBrief';
 import { FreshnessProvider } from './components/Freshness';
 
 export const metadata = {
@@ -52,17 +54,27 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="bg-paper text-ink font-body" suppressHydrationWarning>
-        <header className="border-b border-line">
+        <header className="border-b border-line animate-[fadeSlideDown_0.5s_ease-out]">
           <div className="max-w-5xl mx-auto px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-5">
             <div>
-              <a href="/" className="font-display text-2xl font-bold tracking-tight text-ink whitespace-nowrap">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-wire animate-[fadeSlideDown_0.5s_ease-out_both]">
+                One briefing, once a day
+              </p>
+              <a
+                href="/"
+                className="group relative inline-block font-display text-2xl sm:text-3xl font-bold tracking-tight text-ink whitespace-nowrap transition-all duration-200 hover:-translate-y-0.5 hover:text-wire"
+              >
                 Daily Aggregator
+                <span className="absolute -bottom-0.5 left-0 h-0.5 w-0 bg-wire transition-all duration-300 group-hover:w-full" aria-hidden="true" />
               </a>
-              <p className="mt-1 text-sm text-[#FF0000]">Refreshed every morning across the stories and topics you follow.</p>
+              <p className="mt-1 text-sm text-slate animate-[fadeSlideDown_0.5s_ease-out_0.05s_both]">
+                No feeds to manage, no scrolling required — just what happened, summarized once a day.
+              </p>
             </div>
-            <span className="bg-ink text-[#F0C674] text-[10px] tracking-wider uppercase px-3 py-1.5 rounded-full font-bold whitespace-nowrap">
-              Daily brief
-            </span>
+            <div className="flex shrink-0 items-center gap-3">
+              <SearchTrigger />
+              <NextBrief />
+            </div>
           </div>
         </header>
         <FreshnessProvider>
