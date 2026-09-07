@@ -1,3 +1,4 @@
+export const dynamic = 'force-static';
 import { supabase } from '../lib/supabase-client';
 import { HUBS, getActiveCategories } from '../lib/categories';
 import { getAllTopics } from '../lib/topics';
