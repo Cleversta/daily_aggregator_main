@@ -32,8 +32,17 @@ export default async function HubPage({ params }) {
       };
     });
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: hub.title,
+    url: `https://dailyaggregator.online/hub/${slug}`,
+    isPartOf: { '@type': 'WebSite', name: 'Daily Aggregator', url: 'https://dailyaggregator.online' },
+  };
+
   return (
     <div>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <section className="border-b border-line pb-10 mb-10">
         <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-4">News hub</p>
         <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-ink leading-[1.05]">

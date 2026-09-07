@@ -61,42 +61,57 @@ export default async function HomePage() {
       }))
   );
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Daily Aggregator',
+    url: 'https://dailyaggregator.online',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://dailyaggregator.online/topics?q={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   return (
-    <div className="space-y-14">
-      <section className="border-b border-line pb-10">
-        <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-4">
-          {briefingDate || 'Today’s briefing'}
-        </p>
-        <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-ink max-w-3xl leading-[1.05]">
-          The essential stories, in a few minutes.
-        </h1>
-        <p className="text-slate text-lg leading-relaxed mt-5 max-w-2xl">
-          A focused daily read across the topics that matter to you. Every brief links back to the reporting behind it.
-        </p>
-      </section>
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <div className="space-y-14">
+        <section className="border-b border-line pb-10">
+          <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-4">
+            {briefingDate || 'Today’s briefing'}
+          </p>
+          <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-ink max-w-3xl leading-[1.05]">
+            The essential stories, in a few minutes.
+          </h1>
+          <p className="text-slate text-lg leading-relaxed mt-5 max-w-2xl">
+            A focused daily read across the topics that matter to you. Every brief links back to the reporting behind it.
+          </p>
+        </section>
 
-      <section className="border-b border-line pb-10">
-        <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-2">Get it in your inbox</p>
-        <h2 className="font-display text-2xl font-bold text-ink mb-3">Never miss a briefing.</h2>
-        <p className="text-slate mb-4 max-w-xl">One email, every morning, with the day's essential stories.</p>
-        <Subscribe />
-      </section>
+        <section className="border-b border-line pb-10">
+          <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-2">Get it in your inbox</p>
+          <h2 className="font-display text-2xl font-bold text-ink mb-3">Never miss a briefing.</h2>
+          <p className="text-slate mb-4 max-w-xl">One email, every morning, with the day's essential stories.</p>
+          <Subscribe />
+        </section>
 
-      <HotNow />
+        <HotNow />
 
-      <TopicPreferences topics={preferenceTopics} />
+        <TopicPreferences topics={preferenceTopics} />
 
-      <SavedItems />
+        <SavedItems />
 
-      <CreatorIdeas ideas={creatorIdeas} />
+        <CreatorIdeas ideas={creatorIdeas} />
 
-      {!hasAnyLiveArticle && (
-        <p className="text-slate">
-          No briefs yet — run <code>npm run fetch-news</code> and rebuild.
-        </p>
-      )}
+        {!hasAnyLiveArticle && (
+          <p className="text-slate">
+            No briefs yet — run <code>npm run fetch-news</code> and rebuild.
+          </p>
+        )}
 
-      <PersonalizedFeed hubs={HUBS} articlesByCategory={articlesByCategory} />
-    </div>
+        <PersonalizedFeed hubs={HUBS} articlesByCategory={articlesByCategory} />
+      </div>
+    </>
   );
 }

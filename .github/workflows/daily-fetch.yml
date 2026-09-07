@@ -26,9 +26,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/fetch-news.js
 
-      # Netlify rebuilds automatically from a "Build hook" URL — no deploy
-      # credentials need to live in this repo. Create one in Netlify:
-      # Site settings -> Build & deploy -> Build hooks -> Add build hook,
-      # then paste it into this repo's secrets as NETLIFY_BUILD_HOOK_URL.
       - name: Trigger Cloudflare rebuild
         run: curl -fsS -X POST "${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}"
+
+      - name: Wait for Cloudflare deploy to go live
+
+        run: sleep 90
+
+      - name: Submit updated URLs to IndexNow
+        run: node scripts/submit-indexnow.js
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
