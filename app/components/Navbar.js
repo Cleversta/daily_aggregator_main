@@ -90,11 +90,14 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
         )}
         <div
           ref={trackRef}
-          className="flex min-h-14 items-stretch gap-1 overflow-x-auto [scrollbar-width:thin] [scrollbar-color:#E4E0D6_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-line [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate"
+          // FIX: added snap-x snap-mandatory so this track always settles on a
+          // full nav item instead of resting mid-label (was cutting off hub
+          // titles like "Arts & Creative" down to just "& Creative").
+          className="flex min-h-14 items-stretch gap-1 overflow-x-auto snap-x snap-mandatory [scrollbar-width:thin] [scrollbar-color:#E4E0D6_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-line [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate"
         >
           <Link
             href="/"
-            className={`flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 snap-start items-center border-b-2 px-3 text-sm font-medium transition-colors ${
               pathname === '/' ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
             }`}
           >
@@ -102,7 +105,7 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
           </Link>
           <Link
             href="/youtube"
-            className={`flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 snap-start items-center border-b-2 px-3 text-sm font-medium transition-colors ${
               pathname === '/youtube' ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
             }`}
           >
@@ -110,7 +113,7 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
           </Link>
           <Link
             href="/topics"
-            className={`relative flex shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
+            className={`relative flex shrink-0 snap-start items-center border-b-2 px-3 text-sm font-medium transition-colors ${
               pathname === '/topics' || pathname.startsWith('/topic/') ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
             }`}
           >
@@ -124,7 +127,7 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
           </Link>
           <Link
             href="/#creator-ideas"
-            className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-medium text-slate transition-colors hover:text-ink"
+            className="flex shrink-0 snap-start items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-medium text-slate transition-colors hover:text-ink"
           >
             <span aria-hidden="true">✦</span> Creator Ideas
           </Link>
@@ -143,7 +146,7 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
                 onClick={() => setOpenHub(isOpen ? null : hub.slug)}
                 aria-expanded={isOpen}
                 aria-controls={`hub-menu-${hub.slug}`}
-                className={`relative flex shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors ${
+                className={`relative flex shrink-0 snap-start items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors ${
                   isOpen || active ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
                 }`}
               >
