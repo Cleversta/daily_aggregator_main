@@ -126,6 +126,14 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
             )}
           </Link>
           <Link
+            href="/guide"
+            className={`flex shrink-0 snap-start items-center border-b-2 px-3 text-sm font-medium transition-colors ${
+              pathname === '/guide' || pathname.startsWith('/guide/') ? 'border-ink text-ink' : 'border-transparent text-slate hover:text-ink'
+            }`}
+          >
+            Guide
+          </Link>
+          <Link
             href="/#creator-ideas"
             className="flex shrink-0 snap-start items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-medium text-slate transition-colors hover:text-ink"
           >

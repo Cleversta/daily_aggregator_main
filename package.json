@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/generate-guide-index.js && next build",
     "start": "next start",
     "fetch-news": "node scripts/fetch-news.js",
     "fetch-youtube": "node scripts/fetch-youtube.js",
     "fetch-topics": "node scripts/fetch-topics.js",
     "fetch-topics:all": "node scripts/fetch-topics.js --all",
-    "send-digest": "node scripts/send-digest.js"
+    "send-digest": "node scripts/send-digest.js",
+    "generate-guide-index": "node scripts/generate-guide-index.js",
+    "check-guide-links": "node scripts/check-guide-links.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
