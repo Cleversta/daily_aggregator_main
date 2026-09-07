@@ -1,38 +1,41 @@
-// scripts/fetch-news.js
+// scripts/fetch-topics.js
 //
-// Runs once a day (triggered by .github/workflows/daily-fetch.yml).
-// For each category: research current reporting with Tavily -> summarize with Gemini -> upsert into Supabase.
+// Runs once a day (add as a step in .github/workflows/daily-fetch.yml, or a
+// separate workflow — either works, this is independent from fetch-news.js).
 //
-// PROTOTYPE SCOPE: intentionally limited to 3 categories (one per rough CPM tier)
-// so you can validate the whole pipeline — including AdSense review — before
-// scaling to the full 33-category list. Add categories to CATEGORIES below only
-// after this runs cleanly for a week.
+// For each topic in TODAY's rotation group (see lib/topics.js — 20 of the
+// 100 topics per day, full cycle every 5 days):
+//   1. Query Tavily for that topic.
+//   2. Diff the returned source URLs against yesterday's stored snapshot
+//      for this topic.
+//   3. If the URL set is unchanged -> skip Gemini entirely, just update
+//      last_checked_at / freshness_note. Saves the Gemini call on a day
+//      where nothing new turned up.
+//   4. If it changed (or this is the topic's first run) -> call Gemini,
+//      write the full content, store a new snapshot.
+//
+// Mirrors fetch-news.js's safety patterns: request timeouts, a circuit
+// breaker that aborts the whole run after too many consecutive failures,
+// and a stale-but-live fallback instead of blanking a page on failure.
 
 require('dotenv').config({ path: '.env.local' });
 const { getSupabaseAdmin } = require('../lib/supabase-admin');
-
-const CATEGORIES = ['ai', 'crypto', 'football'];
-
-const TAVILY_QUERY_BY_CATEGORY = {
-  ai: 'artificial intelligence latest news',
-  crypto: 'cryptocurrency bitcoin latest news',
-  football: 'football soccer latest news',
-};
+const { getAllTopics, getTopicsForRotationGroup, getTodaysRotationGroup } = require('../lib/topics');
 
 const TAVILY_URL = 'https://api.tavily.com/search';
-
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent';
 
-const DELAY_BETWEEN_CATEGORIES_MS = 1500;
-const MAX_CONSECUTIVE_FAILURES = 5; // real circuit breaker: aborts the whole run
-const REQUEST_TIMEOUT_MS = 20000;
+const DELAY_BETWEEN_TOPICS_MS = 2500;
+const MAX_CONSECUTIVE_FAILURES = 5;
+const TAVILY_TIMEOUT_MS = 20000;
+const GEMINI_TIMEOUT_MS = 45000; // Gemini generating a full multi-field JSON body needs more room than a Tavily search
+const MAX_RETRIES = 2;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// fetch() with a timeout, since a hung request would otherwise stall the whole run.
 async function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -43,6 +46,27 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
+// Wraps a fetch attempt with a couple of retries and backoff — covers
+// transient timeouts/rate-limit stalls (common when running --all and
+// briefly bumping a free-tier RPM limit) without failing the whole topic
+// on what's often just a one-off slow response.
+async function withRetries(label, fn) {
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt <= MAX_RETRIES) {
+        const backoffMs = 3000 * attempt;
+        console.log(`   ↻ ${label} attempt ${attempt} failed (${error.message}), retrying in ${backoffMs / 1000}s...`);
+        await sleep(backoffMs);
+      }
+    }
+  }
+  throw lastError;
+}
+
 function getSourceName(url) {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -51,8 +75,11 @@ function getSourceName(url) {
   }
 }
 
-async function getRecentTavilyResults(category) {
-  if (!process.env.TAVILY_API_KEY) throw new Error('Missing TAVILY_API_KEY');
+// Topics want a broader, less news-cycle-specific query than the daily
+// briefings — "latest news" skews too breaking-news-y for something like
+// "Notion" or "Quantum computing" that doesn't have daily headlines.
+async function runTavilySearch(topicName, timeRange) {
+  if (!process.env.TAVILY_TOPICS_API_KEY) throw new Error('Missing TAVILY_TOPICS_API_KEY');
 
   const response = await fetchWithTimeout(
     TAVILY_URL,
@@ -60,214 +87,300 @@ async function getRecentTavilyResults(category) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
+        Authorization: `Bearer ${process.env.TAVILY_TOPICS_API_KEY}`,
       },
       body: JSON.stringify({
-        query: TAVILY_QUERY_BY_CATEGORY[category] || `${category} latest news`,
-        topic: 'news',
-        time_range: 'day',
+        query: `${topicName} latest developments`,
+        topic: 'general',
+        time_range: timeRange,
         search_depth: 'basic',
-        max_results: 5,
+        max_results: 6,
         include_raw_content: false,
         include_images: false,
       }),
     },
-    REQUEST_TIMEOUT_MS
+    TAVILY_TIMEOUT_MS
   );
 
   if (!response.ok) throw new Error(`Tavily API responded with status ${response.status}`);
 
   const data = await response.json();
-  const results = (data.results || [])
+  return (data.results || [])
     .filter((item) => item.title && item.url && item.content)
     .map((item) => ({ title: item.title, url: item.url, content: item.content }));
-
-  if (results.length < 2) throw new Error('Tavily returned too few usable sources');
-  return { results };
 }
 
-async function synthesizeWithGemini(category, sourceData) {
-  const sourceList = sourceData.results
-    .map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.content}`)
-    .join('\n\n');
+async function getTavilyResults(topicName) {
+  // 'month' as the default catches broad reference topics (electric vehicles,
+  // renewable energy, etc.) that don't always have coverage in the exact
+  // last 7 days. If that's still thin, one more attempt with no time limit
+  // at all before giving up on this topic for today.
+  let results = await withRetries(`Tavily [${topicName}]`, () => runTavilySearch(topicName, 'month'));
 
-  const prompt = `You are the editor of a calm, trustworthy daily news briefing. Based ONLY on the
-source excerpts below about "${category}", select the most important current development and write
-a clear, original brief for a general reader.
+  if (results.length < 2) {
+    console.log(`   ↻ Only ${results.length} sources in the last month for "${topicName}", widening search...`);
+    results = await withRetries(`Tavily [${topicName}] (broadened)`, () => runTavilySearch(topicName, undefined));
+  }
 
-Editorial standards:
-- Write 110–180 words in two short paragraphs. Lead with what happened, then explain why it matters.
-- Be concrete: name the people, companies, places, numbers, or events that the sources support.
-- Use direct, natural language. Avoid generic openings, hype, clickbait, predictions, and phrases such
-  as "in a rapidly changing landscape" or "the sources say."
-- Do not copy sentences verbatim. Cross-reference sources for consistency; omit claims that appear
-  unverified or are supported by only one weak source.
-- If the reporting is thin or conflicting, be precise about the uncertainty rather than filling gaps.
+  if (results.length < 2) throw new Error('Tavily returned too few usable sources');
+  return results;
+}
 
-Then write:
-- A specific, informative SEO title (max 60 characters; no clickbait)
-- An SEO meta description (max 155 characters)
-- A "what to watch next" line (max 45 words) naming the next concrete development, decision,
-  date, metric, match, or announcement to follow. Do not make predictions or invent a date.
-- Three distinct, useful creator packages based on this development. Each must include a short title,
-  a platform (TikTok, YouTube Shorts, or Instagram Reel), a hook for the first three seconds, a
-  three-step script outline, a short caption, and thumbnail text (max 5 words). Also include a
-  copy-ready prompt that brings everything together. Use only 2–3 factual points supported by the
-  sources. Do not claim something will go viral.
+// The cheap, no-Gemini-needed change check: same set of source URLs as last
+// time = nothing worth rewriting. Different set = something moved.
+function hasChanged(newUrls, previousUrls) {
+  if (!previousUrls || previousUrls.length === 0) return true; // first run
+  const a = [...newUrls].sort().join('|');
+  const b = [...previousUrls].sort().join('|');
+  return a !== b;
+}
 
-Respond ONLY as JSON, no markdown fences, in this exact shape:
-{"summary": "...", "seo_title": "...", "seo_description": "...", "watch_next": "...", "creator_ideas": [{"title": "...", "platform": "...", "hook": "...", "outline": ["...", "...", "..."], "caption": "...", "thumbnail_text": "...", "prompt": "..."}]}
+async function getLatestSnapshot(supabase, slug) {
+  const { data, error } = await supabase
+    .from('topic_snapshots')
+    .select('*')
+    .eq('topic_slug', slug)
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-SOURCES:
-${sourceList}`;
+  if (error) {
+    console.error(`Could not read prior snapshot for [${slug}]:`, error.message);
+    return null;
+  }
+  return data;
+}
 
+async function callGemini(prompt) {
   const response = await fetchWithTimeout(
-    `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
+    `${GEMINI_URL}?key=${process.env.GEMINI_TOPICS_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4 },
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 2048,
+          responseMimeType: 'application/json', // forces strict JSON, no stray text/markdown fences
+        },
       }),
     },
-    REQUEST_TIMEOUT_MS
+    GEMINI_TIMEOUT_MS
   );
 
-  if (!response.ok) {
-    throw new Error(`Gemini API responded with status ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Gemini API responded with status ${response.status}`);
 
   const data = await response.json();
+
+  const finishReason = data?.candidates?.[0]?.finishReason;
+  if (finishReason === 'MAX_TOKENS') throw new Error('Gemini response was truncated (hit max output tokens)');
+
   const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) throw new Error('Gemini returned no usable text');
 
-  if (!rawText) {
-    throw new Error('Gemini returned no usable text');
-  }
-
-  const cleaned = rawText.replace(/```json|```/g, '').trim();
   let parsed;
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim());
   } catch {
     throw new Error('Gemini response was not valid JSON');
   }
 
-  if (!parsed.summary || !parsed.seo_title || !parsed.seo_description || !parsed.watch_next || !Array.isArray(parsed.creator_ideas)) {
-    throw new Error('Gemini JSON is missing required fields');
+  const required = ['snapshot_summary', 'whats_new', 'why_popular', 'key_facts', 'outlook', 'faq', 'change_summary'];
+  for (const field of required) {
+    if (parsed[field] === undefined) throw new Error(`Gemini JSON missing required field "${field}"`);
   }
-
-  const wordCount = parsed.summary.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount < 60 || wordCount > 220) {
-    throw new Error(`Gemini summary has an invalid length (${wordCount} words)`);
-  }
-  if (parsed.watch_next.trim().split(/\s+/).length > 55) throw new Error('Gemini watch_next is too long');
-
-  parsed.creator_ideas = parsed.creator_ideas
-    .filter((idea) =>
-      idea?.title &&
-      idea?.platform &&
-      idea?.hook &&
-      Array.isArray(idea?.outline) &&
-      idea.outline.length === 3 &&
-      idea?.caption &&
-      idea?.thumbnail_text &&
-      idea?.prompt
-    )
-    .slice(0, 3);
-  if (parsed.creator_ideas.length < 3) throw new Error('Gemini returned too few creator ideas');
 
   return parsed;
 }
 
-async function upsertArticle(supabase, category, payload) {
-  const { error } = await supabase
-    .from('articles')
-    .upsert(
-      {
-        category,
-        headline: payload.seo_title,
-        summary: payload.summary,
-        seo_title: payload.seo_title,
-        seo_description: payload.seo_description,
-        watch_next: payload.watch_next,
-        // Category visuals are used in the UI rather than republishing publisher media.
-        image_url: null,
-        video_url: null,
-        video_thumbnail_url: null,
-        creator_ideas: payload.creator_ideas,
-        sources: payload.sources,
-        is_stale: false,
-        fetched_at: new Date().toISOString(),
-      },
-      { onConflict: 'category' }
-    );
+async function synthesizeWithGemini(topic, results, hasExistingBackground) {
+  if (!process.env.GEMINI_TOPICS_API_KEY) throw new Error('Missing GEMINI_TOPICS_API_KEY');
 
-  if (error) {
-    throw new Error(`Supabase upsert failed: ${error.message}`);
-  }
+  const sourceList = results
+    .map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.content}`)
+    .join('\n\n');
+
+  // FIX: the background field describes static/origin facts (founding date,
+  // etc.) that a "latest developments" news search will never surface. The
+  // old instruction still told Gemini to stay source-only for this field,
+  // so it had no founding-year fact to draw on and fell back on a fuzzy,
+  // hedged guess from its own training memory (e.g. "the 2000s" instead of
+  // "2004"). This version explicitly allows general knowledge for
+  // background only, and demands precision over hedging.
+  const backgroundInstruction = hasExistingBackground
+    ? 'Do NOT rewrite the background field — omit "background" from your JSON entirely, it already exists.'
+    : `Also write a "background" field: 3-5 sentences on what this is, its origin, and core facts that
+rarely change. This field may draw on general knowledge beyond the source excerpts, since founding
+dates and origin facts won't appear in a "latest developments" search. But be precise: if you know
+the exact year/date, state it exactly (e.g. "founded in 2004") — never hedge with a vague decade or
+range like "the 2000s" or "early 2000s" when you actually know the specific year. If you are not
+confident of an exact fact, omit it rather than approximate it.`;
+
+  const prompt = `You are writing an evergreen reference page about "${topic}" for a general reader,
+based ONLY on the source excerpts below. This is a reference page, not a breaking-news article —
+write calmly and factually.
+
+${backgroundInstruction}
+
+Then write:
+- "snapshot_summary": 2-3 sentences answering "what is this, right now" (a quick-read summary)
+- "whats_new": the most important recent development(s) supported by the sources, 80-150 words
+- "why_popular": 2-4 sentences on why this is relevant/searched right now
+- "key_facts": an array of 3-6 {"label": "...", "value": "..."} pairs — concrete, checkable facts
+  (version numbers, prices, dates, specs — whatever fits this topic)
+- "outlook": 2-3 sentences, forward-looking, grounded in the sources, clearly speculative where it is
+- "faq": an array of 2-3 {"question": "...", "answer": "..."} pairs a reader would likely ask
+- "change_summary": one short sentence describing what's new since the last check (or "First entry"
+  if there's nothing to compare against)
+
+Keep every field concise — this must fit comfortably within the response length available. Do not
+pad with filler.
+
+Rules:
+- Paraphrase everything; never copy sentences verbatim from the sources.
+- Do not invent facts, dates, or figures not supported by the sources.
+- If sources are thin or conflicting on a point, say so rather than filling the gap.
+
+Respond as JSON only, in this exact shape:
+{"background": "...", "snapshot_summary": "...", "whats_new": "...", "why_popular": "...",
+"key_facts": [{"label": "...", "value": "..."}], "outlook": "...",
+"faq": [{"question": "...", "answer": "..."}], "change_summary": "..."}
+(omit "background" entirely if instructed above)
+
+SOURCES:
+${sourceList}`;
+
+  return withRetries(`Gemini [${topic}]`, () => callGemini(prompt));
 }
 
-async function markStale(supabase, category) {
-  // Leave yesterday's row in place but flag it, so the frontend can show
-  // "last updated" honestly instead of silently serving old content as new.
-  const { error } = await supabase
-    .from('articles')
-    .update({ is_stale: true })
-    .eq('category', category);
+async function upsertTopic(supabase, topic, synthesis, sources, isFirstRun) {
+  const now = new Date().toISOString();
 
-  if (error) {
-    console.error(`Could not mark [${category}] as stale:`, error.message);
+  const row = {
+    slug: topic.slug,
+    topic_name: topic.topicName,
+    hub_slug: topic.hubSlug,
+    topic_category: topic.topicCategory,
+    rotation_group: topic.rotationGroup,
+    snapshot_summary: synthesis.snapshot_summary,
+    whats_new: synthesis.whats_new,
+    why_popular: synthesis.why_popular,
+    key_facts: synthesis.key_facts,
+    outlook: synthesis.outlook,
+    faq: synthesis.faq,
+    sources,
+    change_summary: synthesis.change_summary,
+    freshness_note: 'Updated today',
+    last_checked_at: now,
+    last_updated_at: now,
+    is_stale: false,
+  };
+
+  if (isFirstRun && synthesis.background) {
+    row.background = synthesis.background;
   }
+
+  const { error } = await supabase.from('topics').upsert(row, { onConflict: 'slug' });
+  if (error) throw new Error(`Supabase topic upsert failed: ${error.message}`);
 }
 
-async function runDailyUpdate() {
+async function markCheckedNoChange(supabase, slug) {
+  const { error } = await supabase
+    .from('topics')
+    .update({
+      last_checked_at: new Date().toISOString(),
+      freshness_note: 'Checked, no major changes',
+    })
+    .eq('slug', slug);
+
+  if (error) console.error(`Could not update last_checked_at for [${slug}]:`, error.message);
+}
+
+async function markStale(supabase, slug) {
+  const { error } = await supabase.from('topics').update({ is_stale: true }).eq('slug', slug);
+  if (error) console.error(`Could not mark [${slug}] as stale:`, error.message);
+}
+
+async function storeSnapshot(supabase, slug, sourceUrls, synthesis) {
+  const { error } = await supabase.from('topic_snapshots').upsert(
+    {
+      topic_slug: slug,
+      source_urls: sourceUrls,
+      snapshot_data: synthesis,
+      snapshot_date: new Date().toISOString().slice(0, 10),
+    },
+    { onConflict: 'topic_slug,snapshot_date' }
+  );
+  if (error) console.error(`Could not store snapshot for [${slug}]:`, error.message);
+}
+
+async function runTopicsUpdate() {
   const supabase = getSupabaseAdmin();
+  const runAll = process.argv.includes('--all');
+
+  let topics;
+  if (runAll) {
+    topics = getAllTopics();
+    console.log(`🌐 --all flag set — checking every topic (${topics.length}), ignoring today's rotation group.`);
+    console.log(`   This uses up to ${topics.length} Tavily credits + Gemini calls in one run (all "first run" — no diff to skip against).`);
+  } else {
+    const group = getTodaysRotationGroup();
+    topics = getTopicsForRotationGroup(group);
+    console.log(`📅 Rotation group ${group}/5 today — checking ${topics.length} topics.`);
+  }
+
   let consecutiveFailures = 0;
-  let succeeded = 0;
+  let updated = 0;
+  let unchanged = 0;
   let failed = 0;
 
-  for (const category of CATEGORIES) {
-    // Real circuit breaker: abort the whole run if failures are stacking up
-    // (e.g. Gemini or the database is down), rather than burning quota on failures.
+  for (const topic of topics) {
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-      console.error(
-        `🛑 ${MAX_CONSECUTIVE_FAILURES} consecutive failures. Aborting run to protect quota.`
-      );
+      console.error(`🛑 ${MAX_CONSECUTIVE_FAILURES} consecutive failures. Aborting run to protect quota.`);
       break;
     }
 
-    console.log(`⏳ Processing [${category}]...`);
+    console.log(`⏳ Checking [${topic.slug}]...`);
 
     try {
-      const sourceData = await getRecentTavilyResults(category);
-      const synthesis = await synthesizeWithGemini(category, sourceData);
+      const results = await getTavilyResults(topic.topicName);
+      const newUrls = results.map((r) => r.url);
+      const previousSnapshot = await getLatestSnapshot(supabase, topic.slug);
+      const changed = hasChanged(newUrls, previousSnapshot?.source_urls);
+      const isFirstRun = !previousSnapshot;
 
-      await upsertArticle(supabase, category, {
-        ...synthesis,
-        sources: sourceData.results.map((r) => ({ name: getSourceName(r.url), url: r.url })),
-      });
+      if (!changed) {
+        console.log(`➖ [${topic.slug}] no change since last check — skipping Gemini.`);
+        await markCheckedNoChange(supabase, topic.slug);
+        unchanged++;
+      } else {
+        const synthesis = await synthesizeWithGemini(topic.topicName, results, !isFirstRun);
+        const sources = results.map((r) => ({ name: getSourceName(r.url), url: r.url }));
 
-      console.log(`✅ [${category}] updated.`);
-      succeeded++;
-      consecutiveFailures = 0; // reset streak on success
+        await upsertTopic(supabase, topic, synthesis, sources, isFirstRun);
+        await storeSnapshot(supabase, topic.slug, newUrls, synthesis);
+
+        console.log(`✅ [${topic.slug}] updated.`);
+        updated++;
+      }
+
+      consecutiveFailures = 0;
     } catch (error) {
-      console.error(`❌ [${category}] failed: ${error.message}. Keeping stale content live.`);
-      await markStale(supabase, category);
+      console.error(`❌ [${topic.slug}] failed: ${error.message}. Keeping stale content live.`);
+      await markStale(supabase, topic.slug);
       failed++;
       consecutiveFailures++;
     }
 
-    await sleep(DELAY_BETWEEN_CATEGORIES_MS); // avoid hammering rate limits
+    await sleep(DELAY_BETWEEN_TOPICS_MS);
   }
 
-  console.log(`\nDone. ${succeeded} succeeded, ${failed} failed/stale.`);
+  console.log(`\nDone. ${updated} updated, ${unchanged} unchanged, ${failed} failed/stale.`);
 
-  if (succeeded === 0) {
-    // Nothing updated at all — fail the CI job so you get notified, instead
-    // of silently deploying a site with zero fresh content.
+  if (updated === 0 && unchanged === 0) {
     process.exit(1);
   }
 }
 
-runDailyUpdate();
+runTopicsUpdate();
