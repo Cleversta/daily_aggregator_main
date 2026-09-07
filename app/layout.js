@@ -6,8 +6,20 @@ import NextBrief from './components/NextBrief';
 import { FreshnessProvider } from './components/Freshness';
 
 export const metadata = {
-  title: 'Daily Aggregator',
+  metadataBase: new URL('https://dailyaggregator.online'),
+  title: {
+    default: 'Daily Aggregator',
+    template: '%s | Daily Aggregator',
+  },
   description: 'A once-a-day briefing across the topics you actually care about.',
+  openGraph: {
+    siteName: 'Daily Aggregator',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
   alternates: {
     types: {
       'application/rss+xml': '/feed.xml',

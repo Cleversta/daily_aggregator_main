@@ -62,9 +62,26 @@ export async function generateMetadata({ params }) {
   const article = await getArticle(slug);
   if (!article) return {};
 
+  const url = `/category/${slug}`;
+
   return {
     title: article.seo_title,
     description: article.seo_description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: article.seo_title,
+      description: article.seo_description,
+      url,
+      type: 'article',
+      publishedTime: article.fetched_at,
+      images: article.image_url ? [{ url: article.image_url }] : undefined,
+    },
+    twitter: {
+      card: article.image_url ? 'summary_large_image' : 'summary',
+      title: article.seo_title,
+      description: article.seo_description,
+      images: article.image_url ? [article.image_url] : undefined,
+    },
   };
 }
 
@@ -100,116 +117,142 @@ export default async function CategoryPage({ params }) {
         year: 'numeric',
       }).format(fetchedDate);
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: article.headline,
+    description: article.seo_description || article.summary,
+    image: article.image_url ? [article.image_url] : undefined,
+    datePublished: article.fetched_at,
+    dateModified: article.fetched_at,
+    author: { '@type': 'Organization', name: 'Daily Aggregator' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Daily Aggregator',
+      logo: { '@type': 'ImageObject', url: 'https://dailyaggregator.online/icon.png' },
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `https://dailyaggregator.online/category/${slug}`,
+    },
+  };
+
   return (
-    <article className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
-      {(article.video_thumbnail_url || article.image_url) && (
-        <div className="relative aspect-[16/9] bg-slate-100">
-          {article.video_url ? (
-            <a href={article.video_url} target="_blank" rel="noopener noreferrer" className="block h-full">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={article.video_thumbnail_url || article.image_url}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-              <span className="absolute inset-0 flex items-center justify-center" aria-label="Play video">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/70 pl-1 text-xl text-white" aria-hidden="true">
-                  ▶
-                </span>
-              </span>
-            </a>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={article.image_url} alt="" className="h-full w-full object-cover" />
-          )}
-        </div>
-      )}
-      <div className="p-6 sm:p-8 lg:p-10 max-w-3xl">
-        <div className="flex items-center gap-2 mb-3">
-          <span
-            className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
-            style={{ background: category.accent.pillBg, color: category.accent.pillText }}
-          >
-            <span aria-hidden="true">{category.icon}</span> {category.title}
-          </span>
-          <span className="text-xs text-slate">· {category.hubTitle}</span>
-          {article.is_stale && (
-            <span className="text-xs text-slate">
-              (last updated {new Date(article.fetched_at).toLocaleDateString()})
-            </span>
-          )}
-        </div>
-        <h1 className="font-display text-3xl font-bold text-ink mb-5 leading-tight">
-          {article.headline}
-        </h1>
-        <p className="text-sm text-slate mb-8">
-          Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
-        </p>
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-y border-line py-3">
-          <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
-          <ShareButtons title={article.headline} />
-        </div>
-        <section className="border-y border-line py-7 mb-8">
-          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire">The brief</p>
-            <span className="text-xs text-slate">Original synthesis based on linked reporting</span>
-          </div>
-          <p className="text-slate leading-relaxed text-lg whitespace-pre-line">{article.summary}</p>
-        </section>
-        {article.watch_next && (
-          <section className="mb-8 rounded-lg border border-line bg-[#FCF8ED] p-5 sm:p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-wire">What to watch next</p>
-            <p className="mt-2 text-base leading-relaxed text-ink">{article.watch_next}</p>
-          </section>
-        )}
-        <RelatedYouTubeVideos category={slug} />
-
-        {relatedTopics.length > 0 && (
-          <section className="mb-8">
-            <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire mb-3">Go deeper</p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {relatedTopics.map((topic) => (
-                <Link
-                  key={topic.slug}
-                  href={`/topic/${topic.slug}`}
-                  className="block rounded-lg border border-line bg-white p-4 transition-colors hover:border-wire hover:bg-[#FCF8ED]"
-                >
-                  <p className="font-display font-bold text-ink text-sm leading-snug">{topic.topicName}</p>
-                  {topic.snapshot_summary && (
-                    <p className="mt-1.5 text-xs text-slate leading-relaxed line-clamp-2">{topic.snapshot_summary}</p>
-                  )}
-                  <span className="mt-2 inline-block text-[10px] font-bold uppercase tracking-wide text-ink">
-                    Read topic →
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <article className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
+        {(article.video_thumbnail_url || article.image_url) && (
+          <div className="relative aspect-[16/9] bg-slate-100">
+            {article.video_url ? (
+              <a href={article.video_url} target="_blank" rel="noopener noreferrer" className="block h-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={article.video_thumbnail_url || article.image_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center" aria-label="Play video">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/70 pl-1 text-xl text-white" aria-hidden="true">
+                    ▶
                   </span>
-                </Link>
-              ))}
-            </div>
-          </section>
+                </span>
+              </a>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={article.image_url} alt="" className="h-full w-full object-cover" />
+            )}
+          </div>
         )}
+        <div className="p-6 sm:p-8 lg:p-10 max-w-3xl">
+          <div className="flex items-center gap-2 mb-3">
+            <span
+              className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
+              style={{ background: category.accent.pillBg, color: category.accent.pillText }}
+            >
+              <span aria-hidden="true">{category.icon}</span> {category.title}
+            </span>
+            <span className="text-xs text-slate">· {category.hubTitle}</span>
+            {article.is_stale && (
+              <span className="text-xs text-slate">
+                (last updated {new Date(article.fetched_at).toLocaleDateString()})
+              </span>
+            )}
+          </div>
+          <h1 className="font-display text-3xl font-bold text-ink mb-5 leading-tight">
+            {article.headline}
+          </h1>
+          <p className="text-sm text-slate mb-8">
+            Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
+          </p>
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-y border-line py-3">
+            <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
+            <ShareButtons title={article.headline} />
+          </div>
+          <section className="border-y border-line py-7 mb-8">
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire">The brief</p>
+              <span className="text-xs text-slate">Original synthesis based on linked reporting</span>
+            </div>
+            <p className="text-slate leading-relaxed text-lg whitespace-pre-line">{article.summary}</p>
+          </section>
+          {article.watch_next && (
+            <section className="mb-8 rounded-lg border border-line bg-[#FCF8ED] p-5 sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-wire">What to watch next</p>
+              <p className="mt-2 text-base leading-relaxed text-ink">{article.watch_next}</p>
+            </section>
+          )}
+          <RelatedYouTubeVideos category={slug} />
 
-        <div className="border-t border-line pt-6">
-          <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>
-          <ul className="space-y-3 text-sm">
-            {(article.sources || []).map((source, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-wire" aria-hidden="true" />
-                <a
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="leading-relaxed text-ink underline decoration-wire/50 underline-offset-4 hover:decoration-wire"
-                >
-                  {source.name}
-                </a>
-              </li>
-            ))}
-          </ul>
+          {relatedTopics.length > 0 && (
+            <section className="mb-8">
+              <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire mb-3">Go deeper</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {relatedTopics.map((topic) => (
+                  <Link
+                    key={topic.slug}
+                    href={`/topic/${topic.slug}`}
+                    className="block rounded-lg border border-line bg-white p-4 transition-colors hover:border-wire hover:bg-[#FCF8ED]"
+                  >
+                    <p className="font-display font-bold text-ink text-sm leading-snug">{topic.topicName}</p>
+                    {topic.snapshot_summary && (
+                      <p className="mt-1.5 text-xs text-slate leading-relaxed line-clamp-2">{topic.snapshot_summary}</p>
+                    )}
+                    <span className="mt-2 inline-block text-[10px] font-bold uppercase tracking-wide text-ink">
+                      Read topic →
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="border-t border-line pt-6">
+            <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>
+            <ul className="space-y-3 text-sm">
+              {(article.sources || []).map((source, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-wire" aria-hidden="true" />
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="leading-relaxed text-ink underline decoration-wire/50 underline-offset-4 hover:decoration-wire"
+                  >
+                    {source.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Link href="/" className="inline-block mt-8 text-sm text-slate hover:text-ink">
+            ← Back to today's briefing
+          </Link>
         </div>
-        <Link href="/" className="inline-block mt-8 text-sm text-slate hover:text-ink">
-          ← Back to today's briefing
-        </Link>
-      </div>
-    </article>
+      </article>
+    </>
   );
 }
 //ok
