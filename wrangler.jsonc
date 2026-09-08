@@ -2,8 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "daily-aggregator",
   "compatibility_date": "2026-09-03",
+  "main": "worker.js",
   "assets": {
     "directory": "out",
+    "binding": "ASSETS",
     "not_found_handling": "404-page"
   }
 }
