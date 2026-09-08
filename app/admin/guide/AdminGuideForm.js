@@ -55,18 +55,29 @@ export default function AdminGuideForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secret, ...form, recommendations: tools }),
       });
-      const data = await res.json();
+
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        setStatus({
+          type: 'error',
+          message: `Server returned a non-JSON response (status ${res.status}) — the function may not be deployed yet.`,
+        });
+        return;
+      }
 
       if (!res.ok) {
-        setStatus({ type: 'error', message: data.error || 'Something went wrong.' });
+        setStatus({ type: 'error', message: `(${res.status}) ${data.error || 'Something went wrong.'}` });
       } else {
         localStorage.setItem('guideAdminSecret', secret);
         setStatus({ type: 'ok', message: `Saved ${data.savedCount} tool(s) to /guide/${data.slug}` });
         setForm({ name: '', category: form.category, description: '', phrases: '' });
         setTools([{ ...EMPTY_TOOL }]);
       }
-    } catch {
-      setStatus({ type: 'error', message: 'Network error — try again.' });
+    } catch (err) {
+      setStatus({ type: 'error', message: `Connection failed: ${err.message}` });
     } finally {
       setSubmitting(false);
     }
