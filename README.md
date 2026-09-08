@@ -27,6 +27,13 @@ brief, hosted on Cloudflare Pages.
 - Static pages: `/about`, `/editorial-policy`, `/privacy`, `/contact`, plus
   `/feed.xml`, `/robots.txt`, and a generated sitemap.
 
+## Guide workflow
+
+The Guide now supports private editable drafts, 15 starter tasks, queued Tavily/Gemini
+research, editorial approval, and a Cloudflare rebuild after publishing. Run the
+additional database migration and configure the worker before enabling it:
+see [Guide setup and operations](GUIDE_WORKFLOW.md).
+
 ## Architecture
 
 - **Frontend**: Next.js (App Router, `output: 'export'`) — reads Supabase

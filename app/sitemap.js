@@ -1,12 +1,13 @@
 export const dynamic = 'force-static';
 import { supabase } from '../lib/supabase-client';
 import { HUBS, getActiveCategories } from '../lib/categories';
+import { getPublishedIntents } from '../lib/guide';
 import { getAllTopics } from '../lib/topics';
 
 const BASE_URL = 'https://dailyaggregator.online';
 
 export default async function sitemap() {
-  const staticRoutes = ['', '/about', '/editorial-policy', '/privacy', '/contact', '/topics', '/youtube'].map(
+  const staticRoutes = ['', '/about', '/editorial-policy', '/privacy', '/contact', '/topics', '/youtube', '/guide'].map(
     (path) => ({
       url: `${BASE_URL}${path}`,
       changeFrequency: path === '' ? 'daily' : 'monthly',
@@ -40,5 +41,7 @@ export default async function sitemap() {
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...hubRoutes, ...categoryRoutes, ...topicRoutes];
+  const guides = await getPublishedIntents();
+  const guideRoutes = guides.map(g => ({ url: `${BASE_URL}/guide/${g.slug}`, lastModified: g.updated_at, changeFrequency: 'monthly', priority: 0.7 }));
+  return [...staticRoutes, ...hubRoutes, ...categoryRoutes, ...topicRoutes, ...guideRoutes];
 }

@@ -4,7 +4,7 @@ import GuideSearch from '../components/GuideSearch';
 
 export const metadata = {
   title: 'Guide — Find the right tool',
-  description: 'What are you trying to do? Search or browse to find the right free tool for the job.',
+  description: 'What are you trying to do? Search or browse to find the right tool for the job.',
 };
 
 export default async function GuideIndexPage() {
@@ -23,7 +23,7 @@ export default async function GuideIndexPage() {
           What are you trying to do?
         </h1>
         <p className="text-slate text-lg leading-relaxed mt-5 max-w-2xl">
-          Describe the task and we&apos;ll point you to the right free tool — no account, no signup.
+          Find practical instructions and recommended tools, with their limits explained.
         </p>
         <div className="mt-6 max-w-xl">
           <GuideSearch />
@@ -32,7 +32,7 @@ export default async function GuideIndexPage() {
 
       {intents.length === 0 ? (
         <p className="text-slate">
-          No guides published yet — add rows to <code>guide_intents</code> in Supabase and rebuild.
+          Our first guides are being prepared. Check back soon.
         </p>
       ) : (
         <div className="space-y-10">

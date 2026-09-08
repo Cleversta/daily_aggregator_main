@@ -12,7 +12,9 @@
     "fetch-topics:all": "node scripts/fetch-topics.js --all",
     "send-digest": "node scripts/send-digest.js",
     "generate-guide-index": "node scripts/generate-guide-index.js",
-    "check-guide-links": "node scripts/check-guide-links.js"
+    "check-guide-links": "node scripts/check-guide-links.js",
+    "process-guide-jobs": "node scripts/process-guide-jobs.mjs",
+    "test:guide": "node tests/guide-workflow.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

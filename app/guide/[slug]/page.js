@@ -24,9 +24,9 @@ export async function generateMetadata({ params }) {
     return {};
   }
 
-  const title = `${intent.name} — best free tools`;
+  const title = `${intent.name} — instructions and tools`;
   const description =
-    intent.description || `The best free tools for: ${intent.name}.`;
+    intent.description || `Instructions and recommended tools for: ${intent.name}.`;
 
   return {
     title,
@@ -80,11 +80,11 @@ export default async function GuideDetailPage({ params }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd),
+          __html: JSON.stringify(jsonLd).replace(/</g, '\u003c'),
         }}
       />
 
-      <article className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
+      <article data-guide-publication={intent.publication_id || undefined} className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
         <div className="p-6 sm:p-8 lg:p-10 max-w-3xl">
 
           {/* Category */}
@@ -106,6 +106,13 @@ export default async function GuideDetailPage({ params }) {
             </p>
           )}
 
+          {intent.verified_on && intent.verification !== 'unverified' && <p className="text-sm text-slate mb-6">
+            {intent.verification === 'tested' ? 'Personally tested' : 'Checked against documentation'} · {intent.verified_on}
+          </p>}
+          {intent.steps?.length > 0 && <section className="mb-8">
+            <h2 className="font-display text-xl font-bold mb-3">How to do it</h2>
+            <ol className="list-decimal pl-6 space-y-3">{intent.steps.map((step, i) => <li key={i}>{step}</li>)}</ol>
+          </section>}
           {/* Recommendations */}
           {liveRecs.length === 0 ? (
             <p className="text-slate">
@@ -148,6 +155,9 @@ export default async function GuideDetailPage({ params }) {
                     </p>
                   )}
 
+                  {rec.needs_review && <p className="text-sm mt-2">This recommendation is due for another review.</p>}
+                  {[['Limitations', rec.limitations], ['Signup', rec.signup], ['Privacy', rec.privacy]].filter(([, value]) => value).map(([label, value]) => <p key={label} className="text-sm mt-2"><strong>{label}:</strong> {value}</p>)}
+                  {rec.source_urls?.length > 0 && <div className="flex flex-wrap gap-3 mt-3">{rec.source_urls.map((url, n) => <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="text-sm underline">Evidence {n + 1}</a>)}</div>}
                   {/* Recommendation reason */}
                   {rec.reason && (
                     <p className="text-sm text-ink mt-2 leading-relaxed italic">
@@ -159,6 +169,7 @@ export default async function GuideDetailPage({ params }) {
             </section>
           )}
 
+          {intent.sources?.length > 0 && <section className="mb-8"><h2 className="font-display text-xl font-bold mb-3">Sources</h2><ul className="space-y-2">{intent.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline text-sm">{source.title || source.url}</a></li>)}</ul></section>}
           {/* Back link */}
           <Link
             href="/guide"

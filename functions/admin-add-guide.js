@@ -1,146 +1,67 @@
-// functions/admin-add-guide.js
-//
-// Cloudflare Pages Function, reachable at POST /admin-add-guide.
-// Lets you add a guide intent + one or more recommendations from the
-// /admin/guide form (works from a phone browser) instead of the Supabase
-// table editor.
-//
-// Protected by a shared secret (ADMIN_SECRET) — not a real login system,
-// just enough to keep this off Google and out of random hands. Don't link
-// /admin/guide anywhere public.
-
 import { createClient } from '@supabase/supabase-js';
+import { normalizeGuide, starters } from '../lib/guide-workflow.mjs';
 
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+const json = (body, status = 200) => new Response(JSON.stringify(body), {
+  status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+});
+const unwrap = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
+
+export async function onRequestPost({ request, env }) {
+  if (!env.ADMIN_SECRET) return json({ error: 'Guide admin is not configured. Set ADMIN_SECRET in Cloudflare and redeploy.' }, 503);
+  let payload;
+  try { payload = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, 400); }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ error: 'Invalid JSON body.' }, 400);
+  if (payload.secret !== env.ADMIN_SECRET) return json({ error: 'Wrong password.' }, 401);
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json({ error: 'Configure Supabase for this Cloudflare environment.' }, 503);
+  const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  try {
+    switch (payload.action) {
+      case 'list': {
+        const drafts = unwrap(await db.from('guide_drafts').select('*').order('updated_at', { ascending: false }));
+        const jobs = unwrap(await db.from('guide_jobs').select('id,slug,status,attempts,message,available_at,created_at').order('created_at', { ascending: false }).limit(100));
+        const usage = unwrap(await db.from('guide_usage').select('*').order('period', { ascending: false }).limit(40));
+        const flags = unwrap(await db.from('guide_recommendations').select('name,url,needs_review,is_stale,guide_intents(slug)').or('needs_review.eq.true,is_stale.eq.true').limit(100));
+        return json({ drafts, jobs, usage, flags });
+      }
+      case 'seed': {
+        const rows = starters.map(s => ({ slug: s.slug, content: normalizeGuide(s) }));
+        unwrap(await db.from('guide_drafts').upsert(rows, { onConflict: 'slug', ignoreDuplicates: true }));
+        return json({ message: '15 starter tasks prepared. Existing drafts were preserved. Research each task when ready.' });
+      }
+      case 'save': {
+        const content = normalizeGuide(payload.content);
+        if (!Number.isInteger(payload.version) || payload.version < 0) return json({ error: 'Invalid draft version.' }, 400);
+        const draft = unwrap(await db.rpc('guide_save', { p_slug: content.slug, p_content: content, p_version: payload.version }));
+        return json({ draft, message: 'Draft saved. Published content is unchanged.' });
+      }
+      case 'research': {
+        const id = unwrap(await db.rpc('guide_queue', { p_slug: payload.slug, p_version: payload.version }));
+        return json({ id, message: 'Research queued. The scheduled worker will process it; refresh to see progress.' });
+      }
+      case 'publish': {
+        if (payload.reviewed !== true) return json({ error: 'Confirm that you reviewed the instructions and evidence.' }, 400);
+        const draft = unwrap(await db.from('guide_drafts').select('*').eq('slug', payload.slug).single());
+        normalizeGuide(draft.content, true);
+        const publicationId = unwrap(await db.rpc('guide_publish', { p_slug: payload.slug, p_version: payload.version }));
+        const deployment = await rebuild(env);
+        return json({ publicationId, ...deployment });
+      }
+      case 'rebuild': return json(await rebuild(env));
+      default: return json({ error: 'Unknown action. Refresh the admin page after deploying the new version.' }, 400);
+    }
+  } catch (error) {
+    // Database messages contain no keys; provider response bodies are never returned.
+    return json({ error: error.message }, /Draft changed|duplicate key/.test(error.message) ? 409 : 400);
+  }
 }
 
-export async function onRequestPost(context) {
-  const { request, env } = context;
-
-  let payload;
+async function rebuild(env) {
+  if (!env.CLOUDFLARE_DEPLOY_HOOK_URL) return { deployment: 'not_requested', message: 'Saved for publication. Configure CLOUDFLARE_DEPLOY_HOOK_URL or rebuild Cloudflare manually.' };
   try {
-    payload = await request.json();
+    const response = await fetch(env.CLOUDFLARE_DEPLOY_HOOK_URL, { method: 'POST', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Deploy hook failed');
+    return { deployment: 'requested', message: 'Rebuild requested. Use “Check live publication” after Cloudflare finishes; the request alone does not mean the page is live.' };
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return { deployment: 'failed', message: 'Content saved, but the rebuild request failed. Use Retry rebuild or redeploy in Cloudflare.' };
   }
-
-  if (!env.ADMIN_SECRET) {
-    return new Response(JSON.stringify({ error: 'Guide admin is not configured. Set ADMIN_SECRET in Cloudflare and redeploy.' }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (payload.secret !== env.ADMIN_SECRET) {
-    return new Response(JSON.stringify({ error: 'Wrong password.' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const name = String(payload.name || '').trim();
-  const category = String(payload.category || '').trim();
-  const description = String(payload.description || '').trim();
-  const phrases = String(payload.phrases || '')
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  const recommendations = (Array.isArray(payload.recommendations) ? payload.recommendations : [])
-    .map((r) => ({
-      name: String(r.name || '').trim(),
-      url: String(r.url || '').trim(),
-      description: String(r.description || '').trim(),
-      reason: String(r.reason || '').trim(),
-    }))
-    .filter((r) => r.name && r.url); // drop empty rows the user left blank
-
-  if (!name || !category) {
-    return new Response(JSON.stringify({ error: 'Task name and category are required.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (recommendations.length === 0) {
-    return new Response(
-      JSON.stringify({ error: 'Add at least one tool with a name and URL.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const slug = slugify(name);
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  });
-
-  // Upsert the intent — submitting the same task name again later reuses
-  // the existing row instead of creating a duplicate page.
-  const { data: intent, error: intentError } = await supabase
-    .from('guide_intents')
-    .upsert(
-      { slug, name, category, description, status: 'published' },
-      { onConflict: 'slug' }
-    )
-    .select('id')
-    .single();
-
-  if (intentError) {
-    return new Response(JSON.stringify({ error: `Couldn't save the intent: ${intentError.message}` }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  // New recommendations rank after any that already exist for this intent.
-  const { count } = await supabase
-    .from('guide_recommendations')
-    .select('id', { count: 'exact', head: true })
-    .eq('intent_id', intent.id);
-
-  const startRank = (count || 0) + 1;
-  const rows = recommendations.map((rec, i) => ({
-    intent_id: intent.id,
-    name: rec.name,
-    url: rec.url,
-    description: rec.description,
-    reason: rec.reason,
-    rank: startRank + i,
-    status: 'published',
-  }));
-
-  const { error: recError } = await supabase.from('guide_recommendations').insert(rows);
-
-  if (recError) {
-    return new Response(JSON.stringify({ error: `Couldn't save recommendations: ${recError.message}` }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (phrases.length > 0) {
-    await supabase
-      .from('guide_search_phrases')
-      .insert(phrases.map((phrase) => ({ intent_id: intent.id, phrase })));
-  }
-
-  return new Response(JSON.stringify({ ok: true, slug, savedCount: rows.length }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
 }

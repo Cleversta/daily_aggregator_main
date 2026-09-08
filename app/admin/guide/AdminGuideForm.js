@@ -1,201 +1,142 @@
 'use client';
+import { useState } from 'react';
+import { categories, normalizeGuide } from '../../../lib/guide-workflow.mjs';
 
-import { useState, useEffect } from 'react';
-
-const CATEGORIES = ['images', 'documents', 'coding', 'money', 'writing', 'design'];
-const MAX_TOOLS = 5;
-const EMPTY_TOOL = { name: '', url: '', description: '', reason: '' };
-
-const FIELD_CLASS =
-  'w-full rounded-lg border border-line px-3 py-2.5 text-ink placeholder:text-slate focus:outline-none focus:border-wire';
-const LABEL_CLASS = 'block text-xs font-bold uppercase tracking-wide text-wire mb-1.5';
-
+const empty = () => ({ slug: '', name: '', category: 'images', description: '', phrases: [], steps: [], sources: [], recommendations: [], verification: 'unverified', verified_on: '' });
+const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-ink';
+const button = 'rounded-lg border border-line px-4 py-2 text-sm font-bold disabled:opacity-50';
+function Field({ label, value, onChange, multiline = false, ...props }) {
+  return <label className="block space-y-1"><span className="text-sm font-bold">{label}</span>{multiline
+    ? <textarea className={field} rows={3} value={value || ''} onChange={e => onChange(e.target.value)} {...props} />
+    : <input className={field} value={value || ''} onChange={e => onChange(e.target.value)} {...props} />}</label>;
+}
 export default function AdminGuideForm() {
   const [secret, setSecret] = useState('');
-  const [form, setForm] = useState({
-    name: '',
-    category: 'images',
-    description: '',
-    phrases: '',
-  });
-  const [tools, setTools] = useState([{ ...EMPTY_TOOL }]);
-  const [status, setStatus] = useState(null); // { type: 'ok' | 'error', message }
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    setSecret(localStorage.getItem('guideAdminSecret') || '');
-  }, []);
-
-  const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-
-  const updateTool = (index, field) => (e) => {
-    setTools((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], [field]: e.target.value };
-      return next;
-    });
-  };
-
-  const addTool = () => {
-    if (tools.length < MAX_TOOLS) setTools((prev) => [...prev, { ...EMPTY_TOOL }]);
-  };
-
-  const removeTool = (index) => {
-    setTools((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setStatus(null);
-
-    try {
-      const res = await fetch('/admin-add-guide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret, ...form, recommendations: tools }),
-      });
-
-      const raw = await res.text();
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        setStatus({
-          type: 'error',
-          message: `Server returned a non-JSON response (status ${res.status}) — the function may not be deployed yet.`,
-        });
-        return;
-      }
-
-      if (!res.ok) {
-        setStatus({ type: 'error', message: `(${res.status}) ${data.error || 'Something went wrong.'}` });
-      } else {
-        localStorage.setItem('guideAdminSecret', secret);
-        setStatus({ type: 'ok', message: `Saved ${data.savedCount} tool(s) to /guide/${data.slug}` });
-        setForm({ name: '', category: form.category, description: '', phrases: '' });
-        setTools([{ ...EMPTY_TOOL }]);
-      }
-    } catch (err) {
-      setStatus({ type: 'error', message: `Connection failed: ${err.message}` });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} className="space-y-5">
-      <div>
-        <label className={LABEL_CLASS}>Password</label>
-        <input
-          type="password"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          className={FIELD_CLASS}
-          required
-        />
+  const [drafts, setDrafts] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [usage, setUsage] = useState([]);
+  const [flags, setFlags] = useState([]);
+  const [content, setContent] = useState(empty);
+  const [version, setVersion] = useState(0);
+  const [dirty, setDirty] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('Enter your admin password, then load the workspace.');
+  const [publication, setPublication] = useState(null);
+  const [editorStatus, setEditorStatus] = useState('draft');
+  const change = (key, value) => { setContent(c => ({ ...c, [key]: value })); setDirty(true); setReviewed(false); };
+  const lines = value => value.split('\n');
+  async function api(action, payload = {}) {
+    const response = await fetch('/admin-add-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, secret, ...payload }) });
+    let data;
+    try { data = await response.json(); } catch { throw new Error(`Server returned a non-JSON response (${response.status}). Check that the Pages Function is deployed.`); }
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
+    return data;
+  }
+  async function refresh() {
+    const data = await api('list'); setDrafts(data.drafts); setJobs(data.jobs); setUsage(data.usage); setFlags(data.flags || []);
+  }
+  async function run(fn) {
+    setBusy(true);
+    try { await fn(); } catch (error) { setMessage(error.message); }
+    finally { setBusy(false); }
+  }
+  function load(draft) {
+    setContent(draft.content); setVersion(draft.version); setEditorStatus(draft.status);
+    setPublication(draft.publication_id); setDirty(false); setReviewed(false);
+    setMessage(`Loaded ${draft.content.name}. ${draft.status === 'review' ? 'AI draft: verify sources and instructions before publishing.' : 'Ready to edit.'}`);
+  }
+  async function save() {
+    const normalized = normalizeGuide(content);
+    if (!dirty && version) return version;
+    const data = await api('save', { content: normalized, version });
+    setContent(data.draft.content); setVersion(data.draft.version); setDirty(false); setEditorStatus('draft');
+    return data.draft.version;
+  }
+  async function publish() {
+    normalizeGuide(content, true);
+    const savedVersion = await save();
+    const data = await api('publish', { slug: content.slug, version: savedVersion, reviewed });
+    setPublication(data.publicationId); setEditorStatus('published'); setMessage(data.message); await refresh();
+  }
+  async function checkLive() {
+    if (!publication) throw new Error('Publish this guide first.');
+    const response = await fetch(`/guide/${content.slug}?check=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('The guide page is not available yet. Check the Cloudflare deployment.');
+    const document = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const deployedId = document.querySelector('[data-guide-publication]')?.getAttribute('data-guide-publication');
+    setMessage(deployedId === publication
+      ? 'This published revision is included in the deployed build. Open its guide page to review it.'
+      : 'This revision is not in the deployed build yet. Check Cloudflare or retry the rebuild.');
+  }
+  const activeJob = jobs.find(j => j.slug === content.slug && ['queued', 'running', 'waiting'].includes(j.status));
+  return <div className="space-y-8">
+    <div className="max-w-lg space-y-3">
+      <Field label="Admin password" type="password" autoComplete="current-password" value={secret} onChange={setSecret} />
+      <button className={button} disabled={busy || !secret} onClick={() => run(async () => { await refresh(); setMessage('Workspace refreshed. Open a draft below; unsaved editor changes were preserved.'); })}>Load / refresh workspace</button>
+      <p className="text-sm text-slate">The password stays in this tab’s memory. Research is processed by the scheduled worker, not by page visitors.</p>
+    </div>
+    <p role="status" aria-live="polite" className="border-l-4 border-wire pl-4 text-sm">{busy ? 'Working…' : message}</p>
+    <div className="flex flex-wrap gap-3">
+      <button className={button} disabled={busy || !secret} onClick={() => run(async () => { const data = await api('seed'); await refresh(); setMessage(data.message); })}>Prepare 15 starter drafts</button>
+      <button className={button} disabled={busy || dirty} onClick={() => { setContent(empty()); setVersion(0); setPublication(null); setEditorStatus('draft'); setReviewed(false); }}>New guide</button>
+      <button className={button} disabled={busy || !secret} onClick={() => run(async () => setMessage((await api('rebuild')).message))}>Retry rebuild</button>
+    </div>
+    {drafts.length > 0 && <section><h2 className="font-display text-xl font-bold mb-3">Saved guides</h2>
+      <div className="grid sm:grid-cols-2 gap-2">{drafts.map(d => <button key={d.slug} disabled={busy || dirty} onClick={() => load(d)} className={`${button} text-left`}>
+        {d.content.name}<span className="block text-xs font-normal text-slate">{d.status} · version {d.version}</span>
+      </button>)}</div>
+      {dirty && <p className="mt-2 text-sm">Save your edits before opening another draft. <button className="underline" disabled={busy} onClick={() => { const saved = drafts.find(d => d.slug === content.slug); if (saved) load(saved); else { setContent(empty()); setVersion(0); setDirty(false); } }}>Discard unsaved edits</button></p>}
+    </section>}
+    <fieldset disabled={busy} className="space-y-5 border-t border-line pt-6">
+      <legend className="font-display text-xl font-bold">Guide editor · {editorStatus}{dirty ? ' · unsaved changes' : ''}</legend>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Field label="Task title" value={content.name} onChange={v => change('name', v)} />
+        <Field label="URL slug (fixed after first save)" value={content.slug} disabled={version > 0} onChange={v => change('slug', v)} placeholder="make-photo-smaller" />
       </div>
-
-      <hr className="border-line" />
-
-      <div>
-        <label className={LABEL_CLASS}>Task name (e.g. "Compress an image")</label>
-        <input value={form.name} onChange={update('name')} className={FIELD_CLASS} required />
+      <label className="block text-sm font-bold">Category<select className={field} value={content.category} onChange={e => change('category', e.target.value)}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>
+      <Field label="Short answer / description" multiline value={content.description} onChange={v => change('description', v)} />
+      <Field label="Search phrases — one per line" multiline value={content.phrases.join('\n')} onChange={v => change('phrases', lines(v))} />
+      <Field label="Instructions — one step per line" multiline value={content.steps.join('\n')} onChange={v => change('steps', lines(v))} />
+      <section className="space-y-3"><h3 className="font-bold">Evidence sources</h3>
+        <p className="text-sm text-slate">Open the sources and verify claims. Search excerpts and AI drafts are not proof of personal testing.</p>
+        {content.sources.map((s, i) => <div key={i} className="grid sm:grid-cols-2 gap-2">
+          <Field label={`Source ${i + 1} title`} value={s.title} onChange={v => change('sources', content.sources.map((x, n) => n === i ? { ...x, title: v } : x))} />
+          <Field label="Source URL" value={s.url} onChange={v => change('sources', content.sources.map((x, n) => n === i ? { ...x, url: v } : x))} />
+          {/^https?:\/\//.test(s.url) && <a className="text-sm underline" href={s.url} target="_blank" rel="noopener noreferrer">Read source</a>}
+          <button type="button" className="text-sm underline text-left" onClick={() => change('sources', content.sources.filter((_, n) => n !== i))}>Remove source</button>
+        </div>)}
+        <button className={button} disabled={content.sources.length >= 12} onClick={() => change('sources', [...content.sources, { title: '', url: '' }])}>Add source</button>
+      </section>
+      <section className="space-y-5"><h3 className="font-bold">Recommendations</h3>
+        {content.recommendations.map((rec, i) => <div key={i} className="border border-line rounded-lg p-4 space-y-3">
+          <p className="font-bold">Recommendation {i + 1}</p>
+          {['name', 'url', 'description', 'reason', 'limitations', 'signup', 'privacy'].map(key => <Field key={key} label={key === 'signup' ? 'Signup requirements' : key.charAt(0).toUpperCase() + key.slice(1)} value={rec[key]} multiline={!['name','url','signup'].includes(key)} onChange={v => change('recommendations', content.recommendations.map((r, n) => n === i ? { ...r, [key]: v } : r))} />)}
+          <Field label="Supporting source URLs — one per line" multiline value={(rec.source_urls || []).join('\n')} onChange={v => change('recommendations', content.recommendations.map((r, n) => n === i ? { ...r, source_urls: lines(v) } : r))} />
+          <button className="underline text-sm" onClick={() => change('recommendations', content.recommendations.filter((_, n) => n !== i))}>Remove recommendation</button>
+        </div>)}
+        <button className={button} disabled={content.recommendations.length >= 5} onClick={() => change('recommendations', [...content.recommendations, { name: '', url: '', description: '', reason: '', limitations: '', signup: '', privacy: '', source_urls: [] }])}>Add recommendation</button>
+      </section>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <label className="text-sm font-bold">Verification<select className={field} value={content.verification} onChange={e => change('verification', e.target.value)}>
+          <option value="unverified">Not yet verified</option><option value="documentation">I checked official documentation</option><option value="tested">I personally tested the instructions</option>
+        </select></label>
+        <Field label="Date you verified it" type="date" value={content.verified_on} onChange={v => change('verified_on', v)} />
       </div>
-
-      <div>
-        <label className={LABEL_CLASS}>Category</label>
-        <select value={form.category} onChange={update('category')} className={FIELD_CLASS}>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-3">
+        <button className={button} disabled={!secret} onClick={() => run(async () => { await save(); await refresh(); setMessage('Draft saved.'); })}>Save draft</button>
+        <button className={button} disabled={!secret || !!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>Research with AI</button>
       </div>
-
-      <div>
-        <label className={LABEL_CLASS}>Short description</label>
-        <textarea value={form.description} onChange={update('description')} className={FIELD_CLASS} rows={2} />
+      {activeJob && <p className="text-sm">Research {activeJob.status}: {activeJob.message || 'Awaiting the next worker run.'} {activeJob.status === 'waiting' && `Next attempt after ${new Date(activeJob.available_at).toLocaleString()}.`}</p>}
+      <label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed the instructions, evidence, and tool limitations for this revision.</label>
+      <div className="flex flex-wrap gap-3">
+        <button className={`${button} bg-ink text-white`} disabled={!secret || !reviewed} onClick={() => run(publish)}>Publish reviewed guide</button>
+        <button className={button} disabled={!publication} onClick={() => run(checkLive)}>Check live publication</button>
+        {publication && <a className={`${button} inline-block`} href={`/guide/${content.slug}`} target="_blank" rel="noopener noreferrer">Open public page</a>}
       </div>
-
-      <div>
-        <label className={LABEL_CLASS}>Search phrases (comma-separated)</label>
-        <input
-          value={form.phrases}
-          onChange={update('phrases')}
-          placeholder="compress image, make photo smaller"
-          className={FIELD_CLASS}
-        />
-      </div>
-
-      <hr className="border-line" />
-
-      {tools.map((tool, i) => (
-        <div key={i} className="rounded-lg border border-line p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide font-bold text-wire">Tool {i + 1}</p>
-            {tools.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeTool(i)}
-                className="text-xs text-slate hover:text-ink"
-              >
-                Remove
-              </button>
-            )}
-          </div>
-
-          <div>
-            <label className={LABEL_CLASS}>Tool name</label>
-            <input value={tool.name} onChange={updateTool(i, 'name')} className={FIELD_CLASS} />
-          </div>
-
-          <div>
-            <label className={LABEL_CLASS}>Tool URL</label>
-            <input value={tool.url} onChange={updateTool(i, 'url')} className={FIELD_CLASS} />
-          </div>
-
-          <div>
-            <label className={LABEL_CLASS}>What it's good for</label>
-            <textarea
-              value={tool.description}
-              onChange={updateTool(i, 'description')}
-              className={FIELD_CLASS}
-              rows={2}
-            />
-          </div>
-
-          <div>
-            <label className={LABEL_CLASS}>Why you're recommending it</label>
-            <textarea value={tool.reason} onChange={updateTool(i, 'reason')} className={FIELD_CLASS} rows={2} />
-          </div>
-        </div>
-      ))}
-
-      {tools.length < MAX_TOOLS && (
-        <button
-          type="button"
-          onClick={addTool}
-          className="w-full rounded-lg border border-dashed border-line py-2.5 text-sm text-slate hover:text-ink hover:border-wire"
-        >
-          + Add another tool
-        </button>
-      )}
-
-      {status && (
-        <p className={status.type === 'ok' ? 'text-sm text-green-700' : 'text-sm text-red-700'}>
-          {status.message}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded-lg bg-ink text-white font-bold py-3 disabled:opacity-50"
-      >
-        {submitting ? 'Saving...' : 'Save'}
-      </button>
-    </form>
-  );
+    </fieldset>
+    {flags.length > 0 && <section><h2 className="font-display text-xl font-bold">Recommendations needing review</h2><ul className="space-y-3">{flags.map((f, i) => <li key={i} className="text-sm"><strong>{f.name}</strong> · {f.is_stale ? 'Previously marked stale' : 'Link check needs attention'}<p>{f.url}</p><button className="underline" disabled={busy || dirty || !drafts.some(d => d.slug === f.guide_intents?.slug)} onClick={() => load(drafts.find(d => d.slug === f.guide_intents?.slug))}>Open guide for review</button></li>)}</ul></section>}
+    {jobs.length > 0 && <section><h2 className="font-display text-xl font-bold">Recent research jobs</h2><ul className="divide-y divide-line">{jobs.slice(0, 15).map(j => <li key={j.id} className="py-3 text-sm"><strong>{j.slug}</strong> · {j.status}<p>{j.message || 'Waiting for the worker.'}</p></li>)}</ul></section>}
+    {usage.length > 0 && <section><h2 className="font-display text-xl font-bold">Guide request reservations</h2><p className="text-sm text-slate">Includes failed attempts. Other site pipelines are not counted here. Limits are configured in the worker environment.</p><ul>{usage.slice(0, 8).map(u => <li key={`${u.provider}-${u.period}`} className="text-sm">{u.provider} · {u.period}: {u.used} requests reserved</li>)}</ul></section>}
+  </div>;
 }
