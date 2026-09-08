@@ -32,7 +32,21 @@ export async function onRequestPost(context) {
     });
   }
 
-  if (!env.ADMIN_SECRET || payload.secret !== env.ADMIN_SECRET) {
+  if (!env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({ error: 'Guide admin is not configured. Set ADMIN_SECRET in Cloudflare and redeploy.' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (payload.secret !== env.ADMIN_SECRET) {
     return new Response(JSON.stringify({ error: 'Wrong password.' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
