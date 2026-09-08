@@ -8,6 +8,7 @@ brief, hosted on Cloudflare Pages.
 
 ## What's live right now
 
+
 - **3 active categories** out of a planned 33: `ai`, `crypto`, `football`
   (see `lib/categories.js` for the full 6-hub map — everything else renders
   as "coming soon" in the nav until it's turned on).
