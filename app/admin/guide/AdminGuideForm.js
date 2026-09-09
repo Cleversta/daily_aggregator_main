@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabase-client';
 const empty = () => ({ slug: '', name: '', category: 'images', description: '', phrases: [], steps: [], sources: [], recommendations: [], verification: 'unverified', verified_on: '' });
 const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-ink';
 const button = 'rounded-lg border border-line px-4 py-2 text-sm font-bold disabled:opacity-50';
+const loginCooldownKey = 'guide-admin-login-cooldown-until';
 function Field({ label, value, onChange, multiline = false, ...props }) {
   return <label className="block space-y-1"><span className="text-sm font-bold">{label}</span>{multiline
     ? <textarea className={field} rows={3} value={value || ''} onChange={e => onChange(e.target.value)} {...props} />
@@ -24,6 +25,7 @@ export default function AdminGuideForm() {
   const [dirty, setDirty] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loginCooldown, setLoginCooldown] = useState(0);
   const [message, setMessage] = useState('Sign in with your authorized email to open the workspace.');
   const [publication, setPublication] = useState(null);
   const [editorStatus, setEditorStatus] = useState('draft');
@@ -40,6 +42,17 @@ export default function AdminGuideForm() {
       setMessage(nextSession ? 'Signed in. Load the workspace to continue.' : 'Sign in with your authorized email to open the workspace.');
     });
     return () => data.subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    const updateCooldown = () => {
+      const until = Number(window.localStorage.getItem(loginCooldownKey) || 0);
+      const seconds = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      setLoginCooldown(seconds);
+      if (!seconds) window.localStorage.removeItem(loginCooldownKey);
+    };
+    updateCooldown();
+    const timer = window.setInterval(updateCooldown, 1000);
+    return () => window.clearInterval(timer);
   }, []);
   async function api(action, payload = {}) {
     if (!session?.access_token) throw new Error('Sign in first.');
@@ -98,7 +111,18 @@ export default function AdminGuideForm() {
       email: normalizedEmail,
       options: { emailRedirectTo: `${siteUrl}/admin/guide` },
     });
-    if (error) throw error;
+    if (error) {
+      if (error.message.toLowerCase().includes('rate limit')) {
+        const until = Date.now() + (60 * 60 * 1000);
+        window.localStorage.setItem(loginCooldownKey, String(until));
+        setLoginCooldown(60 * 60);
+        throw new Error('Supabase has reached its email limit. This is separate from the Gemini and Tavily limits. Wait up to one hour, then request one new link. You can also use the newest unused link already in your inbox.');
+      }
+      throw error;
+    }
+    const until = Date.now() + (60 * 1000);
+    window.localStorage.setItem(loginCooldownKey, String(until));
+    setLoginCooldown(60);
     setMessage('Check your email and open the Supabase sign-in link in this browser.');
   }
   const activeJob = jobs.find(j => j.slug === content.slug && ['queued', 'running', 'waiting'].includes(j.status));
@@ -112,7 +136,7 @@ export default function AdminGuideForm() {
         </div>
       </> : <>
         <Field label="Admin email" type="email" autoComplete="email" value={email} onChange={setEmail} />
-        <button className={button} disabled={busy || !email.trim()} onClick={() => run(sendLoginLink)}>Email me a sign-in link</button>
+        <button className={button} disabled={busy || !email.trim() || loginCooldown > 0} onClick={() => run(sendLoginLink)}>{loginCooldown > 0 ? `Try again in ${Math.ceil(loginCooldown / 60)} min` : 'Email me a sign-in link'}</button>
       </>}
       <p className="text-sm text-slate">Guide administration uses Supabase email login. Research is processed by the scheduled worker, not by page visitors.</p>
     </div>
