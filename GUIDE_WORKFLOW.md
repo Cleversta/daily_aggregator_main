@@ -31,6 +31,14 @@ replaces an intent's recommendations and search phrases in one transaction.
 A version check rejects stale editor saves and prevents AI jobs from overwriting
 edits made while research was running.
 
+## Local admin testing
+
+Run `npm run dev:worker`, then open `http://localhost:8787/admin/guide`.
+Wrangler serves the exported site and the real Worker API together. Set
+`LOCAL_GUIDE_ADMIN=true` only in the ignored `.env.local` file; the bypass is
+also restricted in code to localhost. Re-run the command after frontend edits
+so the static export is rebuilt. Production always requires Cloudflare Access.
+
 ## Deploy setup
 
 1. In Supabase SQL Editor, run `supabase/guide_schema.sql` if the original Guide

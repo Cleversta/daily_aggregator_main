@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { categories, normalizeGuide } from '../../../lib/guide-workflow.mjs';
 
 const empty = () => ({ slug: '', name: '', category: 'images', description: '', phrases: [], steps: [], sources: [], recommendations: [], verification: 'unverified', verified_on: '' });
@@ -24,6 +24,7 @@ export default function AdminGuideForm() {
   const [message, setMessage] = useState('Cloudflare Access protects this workspace. Load it to continue.');
   const [publication, setPublication] = useState(null);
   const [editorStatus, setEditorStatus] = useState('draft');
+  const editorRef = useRef(null);
   const change = (key, value) => { setContent(c => ({ ...c, [key]: value })); setDirty(true); setReviewed(false); };
   const lines = value => value.split('\n');
   async function api(action, payload = {}) {
@@ -50,6 +51,7 @@ export default function AdminGuideForm() {
     setContent(draft.content); setVersion(draft.version); setEditorStatus(draft.status);
     setPublication(draft.publication_id); setDirty(false); setReviewed(false);
     setMessage(`Loaded ${draft.content.name}. ${draft.status === 'review' ? 'AI draft: verify sources and instructions before publishing.' : 'Ready to edit.'}`);
+    window.setTimeout(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
   async function save() {
     const normalized = normalizeGuide(content);
@@ -85,19 +87,26 @@ export default function AdminGuideForm() {
       <p className="text-sm text-slate">Cloudflare Access protects Guide administration. Research is processed by the scheduled worker, not by page visitors.</p>
     </div>
     <p role="status" aria-live="polite" className="border-l-4 border-wire pl-4 text-sm">{busy ? 'Working…' : message}</p>
+    <ol className="grid gap-2 text-sm sm:grid-cols-3">
+      <li className="rounded-lg border border-line p-3"><strong>1. Choose a guide</strong><span className="mt-1 block text-slate">Click its Edit button below.</span></li>
+      <li className="rounded-lg border border-line p-3"><strong>2. Make changes</strong><span className="mt-1 block text-slate">Edit the fields, then save the draft.</span></li>
+      <li className="rounded-lg border border-line p-3"><strong>3. Publish</strong><span className="mt-1 block text-slate">Review, publish, then rebuild the site.</span></li>
+    </ol>
     <div className="flex flex-wrap gap-3">
       <button className={button} disabled={busy} onClick={() => run(async () => { const data = await api('seed'); await refresh(); setMessage(data.message); })}>Prepare 15 starter drafts</button>
       <button className={button} disabled={busy || dirty} onClick={() => { setContent(empty()); setVersion(0); setPublication(null); setEditorStatus('draft'); setReviewed(false); }}>New guide</button>
       <button className={button} disabled={busy} onClick={() => run(async () => setMessage((await api('rebuild')).message))}>Retry rebuild</button>
     </div>
     {drafts.length > 0 && <section><h2 className="font-display text-xl font-bold mb-3">Saved guides</h2>
-      <div className="grid sm:grid-cols-2 gap-2">{drafts.map(d => <button key={d.slug} disabled={busy || dirty} onClick={() => load(d)} className={`${button} text-left`}>
-        {d.content.name}<span className="block text-xs font-normal text-slate">{d.status} · version {d.version}</span>
+      <div className="grid sm:grid-cols-2 gap-2">{drafts.map(d => <button key={d.slug} disabled={busy || dirty} onClick={() => load(d)} className={`${button} text-left ${content.slug === d.slug ? 'border-ink bg-slate-50' : ''}`}>
+        <span className="flex items-center justify-between gap-3"><span>{d.content.name}</span><span className="shrink-0 underline">Edit →</span></span>
+        <span className="block text-xs font-normal text-slate">{d.status === 'published' ? 'Live' : d.status === 'review' ? 'Ready for review' : 'Draft'} · version {d.version}</span>
       </button>)}</div>
       {dirty && <p className="mt-2 text-sm">Save your edits before opening another draft. <button className="underline" disabled={busy} onClick={() => { const saved = drafts.find(d => d.slug === content.slug); if (saved) load(saved); else { setContent(empty()); setVersion(0); setDirty(false); } }}>Discard unsaved edits</button></p>}
     </section>}
-    <fieldset disabled={busy} className="space-y-5 border-t border-line pt-6">
-      <legend className="font-display text-xl font-bold">Guide editor · {editorStatus}{dirty ? ' · unsaved changes' : ''}</legend>
+    <fieldset ref={editorRef} disabled={busy} className="scroll-mt-4 space-y-5 rounded-xl border border-line p-5">
+      <legend className="px-2 font-display text-xl font-bold">{content.name ? `Editing: ${content.name}` : 'Create a guide'}</legend>
+      <p className="text-sm text-slate">Status: {editorStatus === 'published' ? 'Live' : editorStatus === 'review' ? 'Ready for review' : 'Draft'}{dirty ? ' · You have unsaved changes' : ''}</p>
       <div className="grid sm:grid-cols-2 gap-4">
         <Field label="Task title" value={content.name} onChange={v => change('name', v)} />
         <Field label="URL slug (fixed after first save)" value={content.slug} disabled={version > 0} onChange={v => change('slug', v)} placeholder="make-photo-smaller" />
@@ -133,15 +142,16 @@ export default function AdminGuideForm() {
       </div>
       <div className="flex flex-wrap gap-3">
         <button className={button} onClick={() => run(async () => { await save(); await refresh(); setMessage('Draft saved.'); })}>Save draft</button>
-        <button className={button} disabled={!!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>Research with AI</button>
+        <button className={button} disabled={!!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>{activeJob ? 'AI research already queued' : 'Research with AI'}</button>
       </div>
       {activeJob && <p className="text-sm">Research {activeJob.status}: {activeJob.message || 'Awaiting the next worker run.'} {activeJob.status === 'waiting' && `Next attempt after ${new Date(activeJob.available_at).toLocaleString()}.`}</p>}
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed the instructions, evidence, and tool limitations for this revision.</label>
       <div className="flex flex-wrap gap-3">
-        <button className={`${button} bg-ink text-white`} disabled={!reviewed} onClick={() => run(publish)}>Publish reviewed guide</button>
+        <button className={`${button} bg-ink text-white`} disabled={!reviewed || busy} onClick={() => run(publish)}>{busy ? 'Publishing…' : 'Publish reviewed guide'}</button>
         <button className={button} disabled={!publication} onClick={() => run(checkLive)}>Check live publication</button>
         {publication && <a className={`${button} inline-block`} href={`/guide/${content.slug}`} target="_blank" rel="noopener noreferrer">Open public page</a>}
       </div>
+      <p role="status" aria-live="polite" className="border-l-4 border-wire pl-4 text-sm">{message}</p>
     </fieldset>
     {flags.length > 0 && <section><h2 className="font-display text-xl font-bold">Recommendations needing review</h2><ul className="space-y-3">{flags.map((f, i) => <li key={i} className="text-sm"><strong>{f.name}</strong> · {f.is_stale ? 'Previously marked stale' : 'Link check needs attention'}<p>{f.url}</p><button className="underline" disabled={busy || dirty || !drafts.some(d => d.slug === f.guide_intents?.slug)} onClick={() => load(drafts.find(d => d.slug === f.guide_intents?.slug))}>Open guide for review</button></li>)}</ul></section>}
     {jobs.length > 0 && <section><h2 className="font-display text-xl font-bold">Recent research jobs</h2><ul className="divide-y divide-line">{jobs.slice(0, 15).map(j => <li key={j.id} className="py-3 text-sm"><strong>{j.slug}</strong> · {j.status}<p>{j.message || 'Waiting for the worker.'}</p></li>)}</ul></section>}

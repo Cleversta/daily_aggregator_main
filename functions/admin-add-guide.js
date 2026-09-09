@@ -16,7 +16,11 @@ export async function onRequestPost({ request, env, accessVerifier = verifyCloud
     return json({ error: `Missing Cloudflare binding: ${missingSupabase.join(', ')}.` }, 503);
   }
 
-  const identity = await accessVerifier(request, env);
+  const hostname = new URL(request.url).hostname;
+  const isLocal = (hostname === 'localhost' || hostname === '127.0.0.1') && env.LOCAL_GUIDE_ADMIN === 'true';
+  const identity = isLocal
+    ? { email: String(env.GUIDE_ADMIN_EMAIL || 'local-admin').toLowerCase() }
+    : await accessVerifier(request, env);
   if (!identity) return json({ error: 'Cloudflare Access did not provide a valid authorized login.' }, 401);
 
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });

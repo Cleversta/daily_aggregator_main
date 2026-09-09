@@ -110,7 +110,7 @@ index.
      one → copy the URL into a new GitHub secret,
      e.g. `CLOUDFLARE_DEPLOY_HOOK_URL`.
    - Change the step to:
-   
+
     ```yaml
      - name: Trigger Cloudflare Pages rebuild
        run: curl -X POST -fsS "${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}"
