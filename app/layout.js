@@ -1,4 +1,5 @@
 import './globals.css';
+import Image from 'next/image';
 import { supabase } from '../lib/supabase-client';
 import Navbar from './components/Navbar';
 import SearchTrigger from './components/Search';
@@ -74,9 +75,16 @@ export default async function RootLayout({ children }) {
               </p>
               <a
                 href="/"
-                className="group relative inline-block font-display text-2xl sm:text-3xl font-bold tracking-tight text-ink whitespace-nowrap transition-all duration-200 hover:-translate-y-0.5 hover:text-wire"
+                className="group relative mt-1 inline-block transition-transform duration-200 hover:-translate-y-0.5"
               >
-                Daily Aggregator
+                <Image
+                  src="/daily-aggregator-header-logo.png"
+                  alt="Daily Aggregator"
+                  width={2103}
+                  height={544}
+                  priority
+                  className="h-auto w-48 sm:w-64"
+                />
                 <span className="absolute -bottom-0.5 left-0 h-0.5 w-0 bg-wire transition-all duration-300 group-hover:w-full" aria-hidden="true" />
               </a>
               <p className="mt-1 text-sm text-slate animate-[fadeSlideDown_0.5s_ease-out_0.05s_both]">

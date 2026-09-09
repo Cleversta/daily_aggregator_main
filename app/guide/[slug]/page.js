@@ -31,6 +31,7 @@ export async function generateMetadata({ params }) {
   return {
     title,
     description,
+    keywords: intent.phrases?.slice(0, 8),
     alternates: {
       canonical: `/guide/${slug}`,
     },
@@ -57,22 +58,44 @@ export default async function GuideDetailPage({ params }) {
   }
 
   const category = getCategoryBySlug(intent.category);
+  const relatedGuides = (await getPublishedIntents())
+    .filter(guide => guide.slug !== slug && guide.category === intent.category)
+    .slice(0, 4);
 
   const liveRecs = intent.recommendations.filter(
     (r) => !r.is_stale
   );
 
+  const pageUrl = `https://dailyaggregator.online/guide/${slug}`;
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: intent.name,
-    description: intent.description,
-    itemListElement: liveRecs.map((rec, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      url: rec.url,
-      name: rec.name,
-    })),
+    '@graph': [
+      {
+        '@type': 'Article',
+        headline: intent.name,
+        description: intent.description,
+        datePublished: intent.created_at,
+        dateModified: intent.updated_at,
+        author: { '@type': 'Organization', name: 'Daily Aggregator' },
+        publisher: { '@type': 'Organization', name: 'Daily Aggregator' },
+        mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://dailyaggregator.online/' },
+          { '@type': 'ListItem', position: 2, name: 'Guides', item: 'https://dailyaggregator.online/guide' },
+          { '@type': 'ListItem', position: 3, name: intent.name, item: pageUrl },
+        ],
+      },
+      {
+        '@type': 'ItemList',
+        name: `Recommended tools for ${intent.name}`,
+        itemListElement: liveRecs.map((rec, i) => ({
+          '@type': 'ListItem', position: i + 1, url: rec.url, name: rec.name,
+        })),
+      },
+    ],
   };
 
   return (
@@ -86,6 +109,12 @@ export default async function GuideDetailPage({ params }) {
 
       <article data-guide-publication={intent.publication_id || undefined} className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
         <div className="p-6 sm:p-8 lg:p-10 max-w-3xl">
+
+          <nav aria-label="Breadcrumb" className="mb-5 text-sm text-slate">
+            <Link href="/">Home</Link> <span aria-hidden="true">›</span>{' '}
+            <Link href="/guide">Guides</Link> <span aria-hidden="true">›</span>{' '}
+            <span aria-current="page">{intent.name}</span>
+          </nav>
 
           {/* Category */}
           {category && (
@@ -109,6 +138,7 @@ export default async function GuideDetailPage({ params }) {
           {intent.verified_on && intent.verification !== 'unverified' && <p className="text-sm text-slate mb-6">
             {intent.verification === 'tested' ? 'Personally tested' : 'Checked against documentation'} · {intent.verified_on}
           </p>}
+          {intent.updated_at && <p className="text-sm text-slate mb-6">Updated {new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(intent.updated_at))}</p>}
           {intent.steps?.length > 0 && <section className="mb-8">
             <h2 className="font-display text-xl font-bold mb-3">How to do it</h2>
             <ol className="list-decimal pl-6 space-y-3">{intent.steps.map((step, i) => <li key={i}>{step}</li>)}</ol>
@@ -170,6 +200,8 @@ export default async function GuideDetailPage({ params }) {
           )}
 
           {intent.sources?.length > 0 && <section className="mb-8"><h2 className="font-display text-xl font-bold mb-3">Sources</h2><ul className="space-y-2">{intent.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline text-sm">{source.title || source.url}</a></li>)}</ul></section>}
+          {intent.phrases?.length > 0 && <section className="mb-8"><h2 className="font-display text-xl font-bold mb-3">Related questions</h2><ul className="flex flex-wrap gap-2">{intent.phrases.slice(0, 8).map(phrase => <li key={phrase} className="rounded-full border border-line px-3 py-1 text-sm text-slate">{phrase}</li>)}</ul></section>}
+          {relatedGuides.length > 0 && <section className="mb-8"><h2 className="font-display text-xl font-bold mb-3">Related guides</h2><div className="grid gap-3 sm:grid-cols-2">{relatedGuides.map(guide => <Link key={guide.slug} href={`/guide/${guide.slug}`} className="rounded-lg border border-line p-4 hover:border-wire"><strong>{guide.name}</strong>{guide.description && <span className="mt-1 block text-sm text-slate">{guide.description}</span>}</Link>)}</div></section>}
           {/* Back link */}
           <Link
             href="/guide"

@@ -5,6 +5,7 @@ import GuideSearch from '../components/GuideSearch';
 export const metadata = {
   title: 'Guide — Find the right tool',
   description: 'What are you trying to do? Search or browse to find the right tool for the job.',
+  alternates: { canonical: '/guide' },
 };
 
 export default async function GuideIndexPage() {
