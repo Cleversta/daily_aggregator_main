@@ -97,14 +97,15 @@ export default function AdminGuideForm() {
       <button className={button} disabled={busy || dirty} onClick={() => { setContent(empty()); setVersion(0); setPublication(null); setEditorStatus('draft'); setReviewed(false); }}>New guide</button>
       <button className={button} disabled={busy} onClick={() => run(async () => setMessage((await api('rebuild')).message))}>Retry rebuild</button>
     </div>
-    {drafts.length > 0 && <section><h2 className="font-display text-xl font-bold mb-3">Saved guides</h2>
-      <div className="grid sm:grid-cols-2 gap-2">{drafts.map(d => <button key={d.slug} disabled={busy || dirty} onClick={() => load(d)} className={`${button} text-left ${content.slug === d.slug ? 'border-ink bg-slate-50' : ''}`}>
+    <div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+    <section className="lg:sticky lg:top-4"><h2 className="font-display text-xl font-bold mb-3">Your guides</h2>
+      {drafts.length > 0 ? <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-2">{drafts.map(d => <button key={d.slug} disabled={busy || dirty} onClick={() => load(d)} className={`${button} text-left ${content.slug === d.slug ? 'border-ink bg-slate-50' : ''}`}>
         <span className="flex items-center justify-between gap-3"><span>{d.content.name}</span><span className="shrink-0 underline">Edit →</span></span>
         <span className="block text-xs font-normal text-slate">{d.status === 'published' ? 'Live' : d.status === 'review' ? 'Ready for review' : 'Draft'} · version {d.version}</span>
-      </button>)}</div>
+      </button>)}</div> : <p className="text-sm text-slate">Load the workspace to see your guides.</p>}
       {dirty && <p className="mt-2 text-sm">Save your edits before opening another draft. <button className="underline" disabled={busy} onClick={() => { const saved = drafts.find(d => d.slug === content.slug); if (saved) load(saved); else { setContent(empty()); setVersion(0); setDirty(false); } }}>Discard unsaved edits</button></p>}
-    </section>}
-    <fieldset ref={editorRef} disabled={busy} className="scroll-mt-4 space-y-5 rounded-xl border border-line p-5">
+    </section>
+    <fieldset ref={editorRef} disabled={busy} className="min-w-0 scroll-mt-4 space-y-5 rounded-xl border border-line p-4 sm:p-6">
       <legend className="px-2 font-display text-xl font-bold">{content.name ? `Editing: ${content.name}` : 'Create a guide'}</legend>
       <p className="text-sm text-slate">Status: {editorStatus === 'published' ? 'Live' : editorStatus === 'review' ? 'Ready for review' : 'Draft'}{dirty ? ' · You have unsaved changes' : ''}</p>
       <div className="grid sm:grid-cols-2 gap-4">
@@ -145,16 +146,21 @@ export default function AdminGuideForm() {
         <button className={button} disabled={!!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>{activeJob ? 'AI research already queued' : 'Research with AI'}</button>
       </div>
       {activeJob && <p className="text-sm">Research {activeJob.status}: {activeJob.message || 'Awaiting the next worker run.'} {activeJob.status === 'waiting' && `Next attempt after ${new Date(activeJob.available_at).toLocaleString()}.`}</p>}
-      <label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed the instructions, evidence, and tool limitations for this revision.</label>
-      <div className="flex flex-wrap gap-3">
-        <button className={`${button} bg-ink text-white`} disabled={!reviewed || busy} onClick={() => run(publish)}>{busy ? 'Publishing…' : 'Publish reviewed guide'}</button>
-        <button className={button} disabled={!publication} onClick={() => run(checkLive)}>Check live publication</button>
-        {publication && <a className={`${button} inline-block`} href={`/guide/${content.slug}`} target="_blank" rel="noopener noreferrer">Open public page</a>}
+      <div className="sticky bottom-3 z-20 space-y-3 rounded-xl border border-line bg-paper/95 p-4 shadow-lg backdrop-blur">
+        <label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed this revision and its sources.</label>
+        <div className="flex flex-wrap gap-3">
+          <button className={`${button} bg-ink text-white`} disabled={!reviewed || busy} onClick={() => run(publish)}>{busy ? 'Publishing…' : 'Publish reviewed guide'}</button>
+          <button className={button} disabled={!publication} onClick={() => run(checkLive)}>Check live publication</button>
+          {publication && <a className={`${button} inline-block`} href={`/guide/${content.slug}`} target="_blank" rel="noopener noreferrer">Open public page</a>}
+        </div>
+        <p role="status" aria-live="polite" className="border-l-4 border-wire pl-4 text-sm">{message}</p>
       </div>
-      <p role="status" aria-live="polite" className="border-l-4 border-wire pl-4 text-sm">{message}</p>
     </fieldset>
+    </div>
     {flags.length > 0 && <section><h2 className="font-display text-xl font-bold">Recommendations needing review</h2><ul className="space-y-3">{flags.map((f, i) => <li key={i} className="text-sm"><strong>{f.name}</strong> · {f.is_stale ? 'Previously marked stale' : 'Link check needs attention'}<p>{f.url}</p><button className="underline" disabled={busy || dirty || !drafts.some(d => d.slug === f.guide_intents?.slug)} onClick={() => load(drafts.find(d => d.slug === f.guide_intents?.slug))}>Open guide for review</button></li>)}</ul></section>}
-    {jobs.length > 0 && <section><h2 className="font-display text-xl font-bold">Recent research jobs</h2><ul className="divide-y divide-line">{jobs.slice(0, 15).map(j => <li key={j.id} className="py-3 text-sm"><strong>{j.slug}</strong> · {j.status}<p>{j.message || 'Waiting for the worker.'}</p></li>)}</ul></section>}
-    {usage.length > 0 && <section><h2 className="font-display text-xl font-bold">Guide request reservations</h2><p className="text-sm text-slate">Includes failed attempts. Other site pipelines are not counted here. Limits are configured in the worker environment.</p><ul>{usage.slice(0, 8).map(u => <li key={`${u.provider}-${u.period}`} className="text-sm">{u.provider} · {u.period}: {u.used} requests reserved</li>)}</ul></section>}
+    {(jobs.length > 0 || usage.length > 0) && <details className="rounded-xl border border-line p-4"><summary className="cursor-pointer font-bold">System status and AI jobs</summary>
+      {jobs.length > 0 && <section className="mt-5"><h2 className="font-display text-xl font-bold">Recent research jobs</h2><ul className="divide-y divide-line">{jobs.slice(0, 15).map(j => <li key={j.id} className="py-3 text-sm"><strong>{j.slug}</strong> · {j.status}<p>{j.message || 'Waiting for the worker.'}</p></li>)}</ul></section>}
+      {usage.length > 0 && <section className="mt-5"><h2 className="font-display text-xl font-bold">Guide request reservations</h2><p className="text-sm text-slate">Includes failed attempts. Other site pipelines are not counted here. Limits are configured in the worker environment.</p><ul>{usage.slice(0, 8).map(u => <li key={`${u.provider}-${u.period}`} className="text-sm">{u.provider} · {u.period}: {u.used} requests reserved</li>)}</ul></section>}
+    </details>}
   </div>;
 }

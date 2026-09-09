@@ -68,8 +68,8 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className="bg-paper text-ink font-body" suppressHydrationWarning>
         <header className="border-b border-line animate-[fadeSlideDown_0.5s_ease-out]">
-          <div className="max-w-5xl mx-auto px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-5">
-            <div>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-5">
+            <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-wire animate-[fadeSlideDown_0.5s_ease-out_both]">
                 One briefing, once a day
               </p>
@@ -83,11 +83,11 @@ export default async function RootLayout({ children }) {
                   width={2103}
                   height={544}
                   priority
-                  className="h-auto w-48 sm:w-64"
+                  className="h-auto w-40 sm:w-56"
                 />
                 <span className="absolute -bottom-0.5 left-0 h-0.5 w-0 bg-wire transition-all duration-300 group-hover:w-full" aria-hidden="true" />
               </a>
-              <p className="mt-1 text-sm text-slate animate-[fadeSlideDown_0.5s_ease-out_0.05s_both]">
+              <p className="mt-1 hidden text-sm text-slate sm:block animate-[fadeSlideDown_0.5s_ease-out_0.05s_both]">
                 No feeds to manage, no scrolling required — just what happened, summarized once a day.
               </p>
             </div>
@@ -99,7 +99,7 @@ export default async function RootLayout({ children }) {
         </header>
         <FreshnessProvider>
           <Navbar categoryFreshness={categoryFreshness} topicFreshness={topicFreshness} />
-          <main className="max-w-5xl mx-auto px-5 sm:px-6 py-12">{children}</main>
+          <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">{children}</main>
         </FreshnessProvider>
         <footer className="border-t border-line mt-16">
           <div className="max-w-5xl mx-auto px-5 sm:px-6 py-8 text-sm text-slate">

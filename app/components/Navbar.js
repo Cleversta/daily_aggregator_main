@@ -61,7 +61,7 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
 
   return (
     <nav className="relative border-b border-line bg-paper" aria-label="Primary navigation">
-      <div className="relative max-w-5xl mx-auto px-5 sm:px-6">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
         {showLeftFade && (
           <>
             <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-paper to-transparent" />
@@ -93,7 +93,7 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
           // FIX: added snap-x snap-mandatory so this track always settles on a
           // full nav item instead of resting mid-label (was cutting off hub
           // titles like "Arts & Creative" down to just "& Creative").
-          className="flex min-h-14 items-stretch gap-1 overflow-x-auto snap-x snap-mandatory [scrollbar-width:thin] [scrollbar-color:#E4E0D6_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-line [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate"
+          className="flex min-h-12 sm:min-h-14 items-stretch gap-1 overflow-x-auto snap-x snap-mandatory [scrollbar-width:thin] [scrollbar-color:#E4E0D6_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-line [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate"
         >
           <Link
             href="/"
