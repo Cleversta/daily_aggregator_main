@@ -1,21 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { categories, normalizeGuide } from '../../../lib/guide-workflow.mjs';
-import { supabase } from '../../../lib/supabase-client';
 
 const empty = () => ({ slug: '', name: '', category: 'images', description: '', phrases: [], steps: [], sources: [], recommendations: [], verification: 'unverified', verified_on: '' });
 const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-ink';
 const button = 'rounded-lg border border-line px-4 py-2 text-sm font-bold disabled:opacity-50';
-const loginCooldownKey = 'guide-admin-login-cooldown-until';
 function Field({ label, value, onChange, multiline = false, ...props }) {
   return <label className="block space-y-1"><span className="text-sm font-bold">{label}</span>{multiline
     ? <textarea className={field} rows={3} value={value || ''} onChange={e => onChange(e.target.value)} {...props} />
     : <input className={field} value={value || ''} onChange={e => onChange(e.target.value)} {...props} />}</label>;
 }
 export default function AdminGuideForm() {
-  const [email, setEmail] = useState('');
-  const [session, setSession] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
   const [drafts, setDrafts] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [usage, setUsage] = useState([]);
@@ -25,38 +21,13 @@ export default function AdminGuideForm() {
   const [dirty, setDirty] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [loginCooldown, setLoginCooldown] = useState(0);
-  const [message, setMessage] = useState('Sign in with your authorized email to open the workspace.');
+  const [message, setMessage] = useState('Cloudflare Access protects this workspace. Load it to continue.');
   const [publication, setPublication] = useState(null);
   const [editorStatus, setEditorStatus] = useState('draft');
   const change = (key, value) => { setContent(c => ({ ...c, [key]: value })); setDirty(true); setReviewed(false); };
   const lines = value => value.split('\n');
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) setMessage('Signed in. Load the workspace to continue.');
-      setAuthReady(true);
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setMessage(nextSession ? 'Signed in. Load the workspace to continue.' : 'Sign in with your authorized email to open the workspace.');
-    });
-    return () => data.subscription.unsubscribe();
-  }, []);
-  useEffect(() => {
-    const updateCooldown = () => {
-      const until = Number(window.localStorage.getItem(loginCooldownKey) || 0);
-      const seconds = Math.max(0, Math.ceil((until - Date.now()) / 1000));
-      setLoginCooldown(seconds);
-      if (!seconds) window.localStorage.removeItem(loginCooldownKey);
-    };
-    updateCooldown();
-    const timer = window.setInterval(updateCooldown, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
   async function api(action, payload = {}) {
-    if (!session?.access_token) throw new Error('Sign in first.');
-    const response = await fetch('/admin-add-guide', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ action, ...payload }) });
+    const response = await fetch('/admin/guide-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...payload }) });
     let data;
     try { data = await response.json(); } catch {
       if (window.location.hostname === 'localhost') {
@@ -68,7 +39,7 @@ export default function AdminGuideForm() {
     return data;
   }
   async function refresh() {
-    const data = await api('list'); setDrafts(data.drafts); setJobs(data.jobs); setUsage(data.usage); setFlags(data.flags || []);
+    const data = await api('list'); setDrafts(data.drafts); setJobs(data.jobs); setUsage(data.usage); setFlags(data.flags || []); setAdminEmail(data.adminEmail || '');
   }
   async function run(fn) {
     setBusy(true);
@@ -103,48 +74,21 @@ export default function AdminGuideForm() {
       ? 'This published revision is included in the deployed build. Open its guide page to review it.'
       : 'This revision is not in the deployed build yet. Check Cloudflare or retry the rebuild.');
   }
-  async function sendLoginLink() {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail) throw new Error('Enter your email address.');
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, '');
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: { emailRedirectTo: `${siteUrl}/admin/guide` },
-    });
-    if (error) {
-      if (error.message.toLowerCase().includes('rate limit')) {
-        const until = Date.now() + (60 * 60 * 1000);
-        window.localStorage.setItem(loginCooldownKey, String(until));
-        setLoginCooldown(60 * 60);
-        throw new Error('Supabase has reached its email limit. This is separate from the Gemini and Tavily limits. Wait up to one hour, then request one new link. You can also use the newest unused link already in your inbox.');
-      }
-      throw error;
-    }
-    const until = Date.now() + (60 * 1000);
-    window.localStorage.setItem(loginCooldownKey, String(until));
-    setLoginCooldown(60);
-    setMessage('Check your email and open the Supabase sign-in link in this browser.');
-  }
   const activeJob = jobs.find(j => j.slug === content.slug && ['queued', 'running', 'waiting'].includes(j.status));
   return <div className="space-y-8">
     <div className="max-w-lg space-y-3">
-      {!authReady ? <p className="text-sm text-slate">Checking sign-in…</p> : session ? <>
-        <p className="text-sm">Signed in as <strong>{session.user.email}</strong></p>
-        <div className="flex gap-3">
-          <button className={button} disabled={busy} onClick={() => run(async () => { await refresh(); setMessage('Workspace refreshed. Open a draft below; unsaved editor changes were preserved.'); })}>Load / refresh workspace</button>
-          <button className={button} disabled={busy} onClick={() => run(async () => { await supabase.auth.signOut(); setMessage('Signed out.'); })}>Sign out</button>
-        </div>
-      </> : <>
-        <Field label="Admin email" type="email" autoComplete="email" value={email} onChange={setEmail} />
-        <button className={button} disabled={busy || !email.trim() || loginCooldown > 0} onClick={() => run(sendLoginLink)}>{loginCooldown > 0 ? `Try again in ${Math.ceil(loginCooldown / 60)} min` : 'Email me a sign-in link'}</button>
-      </>}
-      <p className="text-sm text-slate">Guide administration uses Supabase email login. Research is processed by the scheduled worker, not by page visitors.</p>
+      {adminEmail && <p className="text-sm">Signed in through Cloudflare as <strong>{adminEmail}</strong></p>}
+      <div className="flex gap-3">
+        <button className={button} disabled={busy} onClick={() => run(async () => { await refresh(); setMessage('Workspace refreshed. Open a draft below; unsaved editor changes were preserved.'); })}>Load / refresh workspace</button>
+        <a className={button} href="/cdn-cgi/access/logout">Sign out</a>
+      </div>
+      <p className="text-sm text-slate">Cloudflare Access protects Guide administration. Research is processed by the scheduled worker, not by page visitors.</p>
     </div>
     <p role="status" aria-live="polite" className="border-l-4 border-wire pl-4 text-sm">{busy ? 'Working…' : message}</p>
     <div className="flex flex-wrap gap-3">
-      <button className={button} disabled={busy || !session} onClick={() => run(async () => { const data = await api('seed'); await refresh(); setMessage(data.message); })}>Prepare 15 starter drafts</button>
+      <button className={button} disabled={busy} onClick={() => run(async () => { const data = await api('seed'); await refresh(); setMessage(data.message); })}>Prepare 15 starter drafts</button>
       <button className={button} disabled={busy || dirty} onClick={() => { setContent(empty()); setVersion(0); setPublication(null); setEditorStatus('draft'); setReviewed(false); }}>New guide</button>
-      <button className={button} disabled={busy || !session} onClick={() => run(async () => setMessage((await api('rebuild')).message))}>Retry rebuild</button>
+      <button className={button} disabled={busy} onClick={() => run(async () => setMessage((await api('rebuild')).message))}>Retry rebuild</button>
     </div>
     {drafts.length > 0 && <section><h2 className="font-display text-xl font-bold mb-3">Saved guides</h2>
       <div className="grid sm:grid-cols-2 gap-2">{drafts.map(d => <button key={d.slug} disabled={busy || dirty} onClick={() => load(d)} className={`${button} text-left`}>
@@ -188,13 +132,13 @@ export default function AdminGuideForm() {
         <Field label="Date you verified it" type="date" value={content.verified_on} onChange={v => change('verified_on', v)} />
       </div>
       <div className="flex flex-wrap gap-3">
-        <button className={button} disabled={!session} onClick={() => run(async () => { await save(); await refresh(); setMessage('Draft saved.'); })}>Save draft</button>
-        <button className={button} disabled={!session || !!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>Research with AI</button>
+        <button className={button} onClick={() => run(async () => { await save(); await refresh(); setMessage('Draft saved.'); })}>Save draft</button>
+        <button className={button} disabled={!!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>Research with AI</button>
       </div>
       {activeJob && <p className="text-sm">Research {activeJob.status}: {activeJob.message || 'Awaiting the next worker run.'} {activeJob.status === 'waiting' && `Next attempt after ${new Date(activeJob.available_at).toLocaleString()}.`}</p>}
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />I reviewed the instructions, evidence, and tool limitations for this revision.</label>
       <div className="flex flex-wrap gap-3">
-        <button className={`${button} bg-ink text-white`} disabled={!session || !reviewed} onClick={() => run(publish)}>Publish reviewed guide</button>
+        <button className={`${button} bg-ink text-white`} disabled={!reviewed} onClick={() => run(publish)}>Publish reviewed guide</button>
         <button className={button} disabled={!publication} onClick={() => run(checkLive)}>Check live publication</button>
         {publication && <a className={`${button} inline-block`} href={`/guide/${content.slug}`} target="_blank" rel="noopener noreferrer">Open public page</a>}
       </div>

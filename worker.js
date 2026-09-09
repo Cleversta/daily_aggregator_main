@@ -119,7 +119,7 @@ export default {
     if (request.method === 'GET' && url.pathname === '/confirm') {
       return handleConfirm(request, env);
     }
-    if (request.method === 'POST' && url.pathname === '/admin-add-guide') {
+    if (request.method === 'POST' && url.pathname === '/admin/guide-api') {
       return handleGuideAdmin({ request, env });
     }
 

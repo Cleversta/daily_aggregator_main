@@ -1,36 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 import { normalizeGuide, starters } from '../lib/guide-workflow.mjs';
+import { verifyCloudflareAccess } from '../lib/cloudflare-access.mjs';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
 });
 const unwrap = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost({ request, env, accessVerifier = verifyCloudflareAccess }) {
   let payload;
   try { payload = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, 400); }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ error: 'Invalid JSON body.' }, 400);
-  const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY;
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !anonKey) {
-    return json({ error: 'Configure Supabase URL, anon key, and service key for this Cloudflare environment.' }, 503);
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return json({ error: 'Configure the Supabase URL and service key for this Cloudflare environment.' }, 503);
   }
 
-  const authorization = request.headers.get('Authorization') || '';
-  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-  if (!token) return json({ error: 'Sign in with your admin email first.' }, 401);
-
-  const auth = createClient(env.SUPABASE_URL, anonKey, { auth: { persistSession: false } });
-  const { data: userData, error: userError } = await auth.auth.getUser(token);
-  if (userError || !userData.user?.email) return json({ error: 'Your sign-in expired. Sign in again.' }, 401);
+  const identity = await accessVerifier(request, env);
+  if (!identity) return json({ error: 'Cloudflare Access did not provide a valid authorized login.' }, 401);
 
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-  const { data: admin, error: adminError } = await db
-    .from('guide_admins')
-    .select('email')
-    .eq('email', userData.user.email.toLowerCase())
-    .maybeSingle();
-  if (adminError) return json({ error: 'Guide admin authorization is not configured in Supabase.' }, 503);
-  if (!admin) return json({ error: 'This email is not authorized for Guide administration.' }, 403);
 
   try {
     switch (payload.action) {
@@ -39,7 +27,7 @@ export async function onRequestPost({ request, env }) {
         const jobs = unwrap(await db.from('guide_jobs').select('id,slug,status,attempts,message,available_at,created_at').order('created_at', { ascending: false }).limit(100));
         const usage = unwrap(await db.from('guide_usage').select('*').order('period', { ascending: false }).limit(40));
         const flags = unwrap(await db.from('guide_recommendations').select('name,url,needs_review,is_stale,guide_intents(slug)').or('needs_review.eq.true,is_stale.eq.true').limit(100));
-        return json({ drafts, jobs, usage, flags });
+        return json({ drafts, jobs, usage, flags, adminEmail: identity.email });
       }
       case 'seed': {
         const rows = starters.map(s => ({ slug: s.slug, content: normalizeGuide(s) }));

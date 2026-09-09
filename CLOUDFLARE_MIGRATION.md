@@ -81,11 +81,12 @@ over and disconnected Netlify.
 
 ### Guide admin setup
 
-`/admin/guide` uses Supabase email login. Run `supabase/guide_workflow.sql`, add
-the authorized lowercase email to `guide_admins`, and allow
-`https://dailyaggregator.online/admin/guide` as a Supabase Auth redirect URL.
-The Function needs `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
-`SUPABASE_SERVICE_ROLE_KEY`. It does not use a Cloudflare admin password.
+`/admin/guide` uses Cloudflare Access. Create a self-hosted Access application
+for `dailyaggregator.online/admin/*`, allow only `cleverstar02@gmail.com`, and
+configure `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, and
+`GUIDE_ADMIN_EMAIL=cleverstar02@gmail.com` in the Worker. The Function needs
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for storage. It does not use a
+Cloudflare admin password or Supabase Auth login.
 After saving a guide, rebuild the site to publish its static page and search
 index.
 

@@ -11,9 +11,9 @@ To get the first guide working:
 
 1. **Database:** run `supabase/guide_workflow.sql` in Supabase SQL Editor after
    the existing Guide schema. If you already ran it successfully, skip this.
-2. **Admin access:** add your lowercase email to `guide_admins` in Supabase as
-   shown below. Supabase sends your login link; no Cloudflare admin password is
-   used. Reuse the existing Supabase and AI keys where configured.
+2. **Admin access:** protect `/admin/*` with Cloudflare Access and allow only
+your email. The Worker verifies Cloudflare's signed identity; Supabase is used
+only for Guide storage. Reuse the existing Supabase and AI keys where configured.
    `GUIDE_GEMINI_MODEL` is optional and defaults to `gemini-3.5-flash-lite`. Set
    `CLOUDFLARE_DEPLOY_HOOK_URL` in Cloudflare Pages for automatic rebuilding after
    publishing; a manual rebuild also works.
@@ -37,19 +37,15 @@ edits made while research was running.
    tables do not exist. Then run `supabase/guide_workflow.sql`. The latter is
    repeatable, preserves existing guides, and imports existing content as editable
    drafts. Back up your database before applying any production migration.
-2. Add the email allowed to administer Guides in Supabase SQL Editor:
-   ```sql
-   insert into guide_admins (email)
-   values ('your-email@example.com')
-   on conflict (email) do nothing;
-   ```
-   Use lowercase. In Supabase Authentication settings, keep the email provider
-   enabled and add `https://dailyaggregator.online/admin/guide` to the allowed
-   redirect URLs. Cloudflare **Pages** runtime settings need `SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and
-   `CLOUDFLARE_DEPLOY_HOOK_URL`. The build needs the existing Supabase public and
-   service credentials. `ADMIN_SECRET` is no longer used and may be deleted after
-   deploying this version. Redeploy the repository.
+2. In Cloudflare Zero Trust, create a self-hosted Access application for
+   `dailyaggregator.online/admin/*`. Add an Allow policy whose Include rule is
+   the exact email `cleverstar02@gmail.com`; do not use an Everyone rule. Enable
+   One-time PIN or Google as its login method. Copy the application's Audience
+   tag. Cloudflare runtime settings need `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`,
+   `GUIDE_ADMIN_EMAIL=cleverstar02@gmail.com`, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, and `CLOUDFLARE_DEPLOY_HOOK_URL`. The build needs
+   the existing Supabase credentials. `ADMIN_SECRET` and Supabase Auth login are
+   not used by Guide administration. Redeploy the repository.
    The top-level `functions/` handlers require Pages Functions; `wrangler deploy`
    with the existing static Workers assets config alone does not deploy them.
 3. GitHub Actions secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and either
@@ -64,8 +60,8 @@ edits made while research was running.
    provider. Budgets count Guide requests only, not News/Topics. No automatic
    paid-provider fallback is implemented. Disable paid overages in the provider
    account if a strict zero-cost setup is required.
-5. Open `/admin/guide`, request a login link for the authorized email, open the
-   link, and Load workspace. Click Prepare 15
+5. Open `/admin/guide`, complete the Cloudflare Access login, and Load workspace.
+   Click Prepare 15
    starter drafts once. This creates task shells without consuming AI quota or
    publishing unverified content; repeat clicks preserve existing drafts.
 6. Open **Make a photo smaller**, then Research with AI. Run the **Guide research
