@@ -11,8 +11,9 @@ export async function onRequestPost({ request, env, accessVerifier = verifyCloud
   let payload;
   try { payload = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, 400); }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ error: 'Invalid JSON body.' }, 400);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return json({ error: 'Configure the Supabase URL and service key for this Cloudflare environment.' }, 503);
+  const missingSupabase = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'].filter(name => !env[name]);
+  if (missingSupabase.length) {
+    return json({ error: `Missing Cloudflare binding: ${missingSupabase.join(', ')}.` }, 503);
   }
 
   const identity = await accessVerifier(request, env);
