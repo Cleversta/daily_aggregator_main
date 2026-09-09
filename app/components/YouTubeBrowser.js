@@ -3,15 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase-client';
 import YouTubePlayer from './YouTubePlayer';
+import { YOUTUBE_CATEGORIES, YOUTUBE_REGIONS } from '../../lib/youtube';
 
-const filters = [
-  { id: 'popular', label: 'Popular' },
-  { id: 'sports', label: 'Sports' },
-  { id: 'gaming', label: 'Gaming' },
-  { id: 'entertainment', label: 'Entertainment' },
-  { id: 'music', label: 'Music' },
-  { id: 'technology', label: 'Technology' },
-];
+const filters = YOUTUBE_CATEGORIES.map(({ slug, label }) => ({ id: slug, label }));
 
 function formatPublishedAt(value) {
   const date = new Date(value);
@@ -25,35 +19,48 @@ function formatViewCount(value) {
 
 export default function YouTubeBrowser() {
   const [selectedFilter, setSelectedFilter] = useState('popular');
+  const [selectedRegion, setSelectedRegion] = useState('global');
   const [rows, setRows] = useState([]);
+
+  function loadVideos(category, region = selectedRegion) {
+    let query = supabase.from('youtube_videos')
+      .select('video_id, category, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count')
+      .eq('category', category).order('view_count', { ascending: false }).limit(200);
+    if (region !== 'global') query = query.eq('region_code', region);
+    query.then(({ data }) => setRows(data || []));
+  }
 
   useEffect(() => {
     const requestedCategory = new URLSearchParams(window.location.search).get('category');
     if (filters.some((filter) => filter.id === requestedCategory)) setSelectedFilter(requestedCategory);
-    supabase
-      .from('youtube_videos')
-      .select('video_id, category, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count')
-      .eq('category', requestedCategory || 'popular')
-      .order('view_count', { ascending: false })
-      .limit(160)
-      .then(({ data }) => setRows(data || []));
+    loadVideos(requestedCategory || 'popular', 'global');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const videos = useMemo(() => {
     const uniqueVideos = Array.from(new Map(rows.map((video) => [video.video_id, video])).values());
-    return uniqueVideos.slice(0, 24);
-  }, [rows]);
+    if (selectedRegion !== 'global') return uniqueVideos.slice(0, 24);
+    const buckets = new Map(YOUTUBE_REGIONS.map(({ code }) => [code, []]));
+    uniqueVideos.forEach((video) => buckets.get(video.region_code)?.push(video));
+    const balanced = [];
+    for (let index = 0; balanced.length < 24; index++) {
+      let added = false;
+      for (const { code } of YOUTUBE_REGIONS) {
+        const video = buckets.get(code)?.[index];
+        if (video && !balanced.some((item) => item.video_id === video.video_id)) { balanced.push(video); added = true; }
+        if (balanced.length === 24) break;
+      }
+      if (!added) break;
+    }
+    return balanced;
+  }, [rows, selectedRegion]);
 
   function chooseFilter(category) {
     setSelectedFilter(category);
-    supabase
-      .from('youtube_videos')
-      .select('video_id, category, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count')
-      .eq('category', category)
-      .order('view_count', { ascending: false })
-      .limit(160)
-      .then(({ data }) => setRows(data || []));
+    loadVideos(category);
   }
+
+  function chooseRegion(region) { setSelectedRegion(region); loadVideos(selectedFilter, region); }
 
   return (
     <>
@@ -69,6 +76,14 @@ export default function YouTubeBrowser() {
             {filter.label}
           </button>
         ))}
+      </div>
+      <div className="mb-8 flex items-center gap-3 border-y border-line py-4">
+        <label htmlFor="youtube-region" className="text-sm font-bold text-ink">Market</label>
+        <select id="youtube-region" value={selectedRegion} onChange={(event) => chooseRegion(event.target.value)} className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
+          <option value="global">Balanced global</option>
+          {YOUTUBE_REGIONS.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}
+        </select>
+        <span className="hidden text-sm text-slate sm:inline">Global rotates through every market instead of ranking only by raw views.</span>
       </div>
       <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((video) => (

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase-client';
 import { HUBS, getActiveCategories } from '../lib/categories';
 import { getPublishedIntents } from '../lib/guide';
 import { getAllTopics } from '../lib/topics';
+import { YOUTUBE_CATEGORIES, YOUTUBE_REGIONS } from '../lib/youtube';
 
 const BASE_URL = 'https://dailyaggregator.online';
 
@@ -43,5 +44,10 @@ export default async function sitemap() {
 
   const guides = await getPublishedIntents();
   const guideRoutes = guides.map(g => ({ url: `${BASE_URL}/guide/${g.slug}`, lastModified: g.updated_at, changeFrequency: 'monthly', priority: 0.7 }));
-  return [...staticRoutes, ...hubRoutes, ...categoryRoutes, ...topicRoutes, ...guideRoutes];
+  const youtubeRoutes = [
+    '/youtube/trending-today', '/youtube/most-viewed',
+    ...YOUTUBE_CATEGORIES.map(({ slug }) => `/youtube/category/${slug}`),
+    ...YOUTUBE_REGIONS.map(({ code }) => `/youtube/country/${code.toLowerCase()}`),
+  ].map((path) => ({ url: `${BASE_URL}${path}`, changeFrequency: 'daily', priority: 0.7 }));
+  return [...staticRoutes, ...hubRoutes, ...categoryRoutes, ...topicRoutes, ...guideRoutes, ...youtubeRoutes];
 }

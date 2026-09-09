@@ -4,6 +4,7 @@ require('dotenv').config({ path: '.env.local' });
 const { getSupabaseAdmin } = require('../lib/supabase-admin');
 
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/videos';
+const YOUTUBE_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
 const REQUEST_TIMEOUT_MS = 20_000;
 // YouTube's popular chart is country-based; it has no single global chart.
 // These markets create a broad global composite while keeping API usage modest.
@@ -14,13 +15,22 @@ const regionCodes = (process.env.YOUTUBE_REGION_CODES || 'US,GB,IN,ID,BR,JP,DE,M
 const feeds = [
   { category: 'popular', videoCategoryId: null },
   { category: 'sports', videoCategoryId: '17' },
+  { category: 'film-animation', videoCategoryId: '1' },
   { category: 'gaming', videoCategoryId: '20' },
   { category: 'entertainment', videoCategoryId: '24' },
   { category: 'music', videoCategoryId: '10' },
   { category: 'technology', videoCategoryId: '28' },
+  { category: 'comedy', videoCategoryId: '23' },
+  { category: 'education', videoCategoryId: '27' },
+  { category: 'news', videoCategoryId: '25' },
+  // YouTube has no official anime or football chart, so these two use one
+  // tightly limited search request per market each day.
+  { category: 'anime', query: 'anime' },
+  { category: 'football', query: 'football soccer' },
 ];
 
 async function getPopularVideos(feed, regionCode) {
+  if (feed.query) return getSearchedVideos(feed.query, regionCode);
   const params = new URLSearchParams({
     key: process.env.YOUTUBE_API_KEY || '',
     part: 'snippet,statistics,contentDetails',
@@ -37,6 +47,29 @@ async function getPopularVideos(feed, regionCode) {
     if (!response.ok) throw new Error(`YouTube API responded with status ${response.status}`);
     const data = await response.json();
     return data.items || [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getSearchedVideos(query, regionCode) {
+  const publishedAfter = new Date(Date.now() - 14 * 86400000).toISOString();
+  const searchParams = new URLSearchParams({
+    key: process.env.YOUTUBE_API_KEY || '', part: 'snippet', type: 'video', q: query,
+    regionCode, order: 'viewCount', maxResults: '12', publishedAfter,
+  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const searchResponse = await fetch(`${YOUTUBE_SEARCH_URL}?${searchParams}`, { signal: controller.signal });
+    if (!searchResponse.ok) throw new Error(`YouTube search responded with status ${searchResponse.status}`);
+    const searchData = await searchResponse.json();
+    const ids = (searchData.items || []).map((item) => item.id?.videoId).filter(Boolean);
+    if (!ids.length) return [];
+    const detailParams = new URLSearchParams({ key: process.env.YOUTUBE_API_KEY || '', part: 'snippet,statistics,contentDetails', id: ids.join(',') });
+    const detailResponse = await fetch(`${YOUTUBE_API_URL}?${detailParams}`);
+    if (!detailResponse.ok) throw new Error(`YouTube details responded with status ${detailResponse.status}`);
+    return (await detailResponse.json()).items || [];
   } finally {
     clearTimeout(timeout);
   }
