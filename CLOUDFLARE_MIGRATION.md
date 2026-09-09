@@ -81,18 +81,11 @@ over and disconnected Netlify.
 
 ### Guide admin setup
 
-For `/admin/guide`, set `ADMIN_SECRET` as a secret in your Cloudflare Pages
-project's Settings → Variables and Secrets, for the environment you use
-(Production for the live site; Preview for preview deployments). Choose a
-strong password, save it, and redeploy so the Function receives the binding.
-Enter that exact value in the form's Password field, without added quotes or
-spaces. A value in local `.env.local` or GitHub Actions alone does not configure
-the deployed Function. Do not name it `NEXT_PUBLIC_ADMIN_SECRET`.
-
-A 401 from this endpoint means the submitted password does not match. A 503
-with “Guide admin is not configured” means the deployed Function is missing
-`ADMIN_SECRET`. The Function also needs `SUPABASE_URL` and
-`SUPABASE_SERVICE_ROLE_KEY` to save entries after authentication succeeds.
+`/admin/guide` uses Supabase email login. Run `supabase/guide_workflow.sql`, add
+the authorized lowercase email to `guide_admins`, and allow
+`https://dailyaggregator.online/admin/guide` as a Supabase Auth redirect URL.
+The Function needs `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
+`SUPABASE_SERVICE_ROLE_KEY`. It does not use a Cloudflare admin password.
 After saving a guide, rebuild the site to publish its static page and search
 index.
 

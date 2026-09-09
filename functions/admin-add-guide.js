@@ -7,13 +7,31 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 const unwrap = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
 
 export async function onRequestPost({ request, env }) {
-  if (!env.ADMIN_SECRET) return json({ error: 'Guide admin is not configured. Set ADMIN_SECRET in Cloudflare and redeploy.' }, 503);
   let payload;
   try { payload = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, 400); }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ error: 'Invalid JSON body.' }, 400);
-  if (payload.secret !== env.ADMIN_SECRET) return json({ error: 'Wrong password.' }, 401);
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return json({ error: 'Configure Supabase for this Cloudflare environment.' }, 503);
+  const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY;
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !anonKey) {
+    return json({ error: 'Configure Supabase URL, anon key, and service key for this Cloudflare environment.' }, 503);
+  }
+
+  const authorization = request.headers.get('Authorization') || '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  if (!token) return json({ error: 'Sign in with your admin email first.' }, 401);
+
+  const auth = createClient(env.SUPABASE_URL, anonKey, { auth: { persistSession: false } });
+  const { data: userData, error: userError } = await auth.auth.getUser(token);
+  if (userError || !userData.user?.email) return json({ error: 'Your sign-in expired. Sign in again.' }, 401);
+
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data: admin, error: adminError } = await db
+    .from('guide_admins')
+    .select('email')
+    .eq('email', userData.user.email.toLowerCase())
+    .maybeSingle();
+  if (adminError) return json({ error: 'Guide admin authorization is not configured in Supabase.' }, 503);
+  if (!admin) return json({ error: 'This email is not authorized for Guide administration.' }, 403);
+
   try {
     switch (payload.action) {
       case 'list': {

@@ -37,12 +37,11 @@ test('AI never sets verification and cannot invent evidence URLs', () => {
   const result=validateAIDraft(base,base,[source]); assert.equal(result.verification,'unverified'); assert.equal(result.verified_on,'');
   assert.throws(()=>validateAIDraft({...base,recommendations:[{...base.recommendations[0],source_urls:['https://invented.com']}]},base,[source]));
 });
-test('missing configuration and wrong password are rejected before database work', async () => {
+test('malformed requests, missing configuration and missing login are rejected', async () => {
   const call=(body,environment)=>onRequestPost({ request:new Request('https://example.com/admin-add-guide',{method:'POST',body:JSON.stringify(body)}),env:environment });
+  assert.equal((await call(null,{})).status,400);
   assert.equal((await call({},{})).status,503);
-  assert.equal((await call({secret:'wrong'},{ADMIN_SECRET:'test'})).status,401);
-  assert.equal((await call(null,{ADMIN_SECRET:'test'})).status,400);
-  assert.equal((await call({secret:'test'},{ADMIN_SECRET:'test'})).status,503);
+  assert.equal((await call({}, {SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'service',NEXT_PUBLIC_SUPABASE_ANON_KEY:'anon'})).status,401);
 });
 test('budget reservation is persistent and refuses zero or exhausted budgets', async () => {
   const db=mockDB(); await reserve(db,'tavily',env,new Date('2026-09-09'));

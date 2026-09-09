@@ -8,6 +8,7 @@
 // falls through to serving the static site for everything else.
 
 import { createClient } from '@supabase/supabase-js';
+import { onRequestPost as handleGuideAdmin } from './functions/admin-add-guide.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,14 +17,6 @@ function json(body, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
 }
 
 async function sendConfirmEmail(env, email, token) {
@@ -116,77 +109,6 @@ async function handleConfirm(request, env) {
   return Response.redirect(`${siteUrl}/?subscribed=confirmed`, 302);
 }
 
-async function handleAdminAddGuide(request, env) {
-  let payload;
-  try {
-    payload = await request.json();
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400);
-  }
-
-  if (!env.ADMIN_SECRET || payload.secret !== env.ADMIN_SECRET) {
-    return json({ error: 'Wrong password.' }, 401);
-  }
-
-  const name = String(payload.name || '').trim();
-  const category = String(payload.category || '').trim();
-  const description = String(payload.description || '').trim();
-  const phrases = String(payload.phrases || '')
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  const recommendations = (Array.isArray(payload.recommendations) ? payload.recommendations : [])
-    .map((r) => ({
-      name: String(r.name || '').trim(),
-      url: String(r.url || '').trim(),
-      description: String(r.description || '').trim(),
-      reason: String(r.reason || '').trim(),
-    }))
-    .filter((r) => r.name && r.url);
-
-  if (!name || !category) return json({ error: 'Task name and category are required.' }, 400);
-  if (recommendations.length === 0) return json({ error: 'Add at least one tool with a name and URL.' }, 400);
-
-  const slug = slugify(name);
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  });
-
-  const { data: intent, error: intentError } = await supabase
-    .from('guide_intents')
-    .upsert({ slug, name, category, description, status: 'published' }, { onConflict: 'slug' })
-    .select('id')
-    .single();
-
-  if (intentError) return json({ error: `Couldn't save the intent: ${intentError.message}` }, 500);
-
-  const { count } = await supabase
-    .from('guide_recommendations')
-    .select('id', { count: 'exact', head: true })
-    .eq('intent_id', intent.id);
-
-  const startRank = (count || 0) + 1;
-  const rows = recommendations.map((rec, i) => ({
-    intent_id: intent.id,
-    name: rec.name,
-    url: rec.url,
-    description: rec.description,
-    reason: rec.reason,
-    rank: startRank + i,
-    status: 'published',
-  }));
-
-  const { error: recError } = await supabase.from('guide_recommendations').insert(rows);
-  if (recError) return json({ error: `Couldn't save recommendations: ${recError.message}` }, 500);
-
-  if (phrases.length > 0) {
-    await supabase.from('guide_search_phrases').insert(phrases.map((phrase) => ({ intent_id: intent.id, phrase })));
-  }
-
-  return json({ ok: true, slug, savedCount: rows.length });
-}
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -198,7 +120,7 @@ export default {
       return handleConfirm(request, env);
     }
     if (request.method === 'POST' && url.pathname === '/admin-add-guide') {
-      return handleAdminAddGuide(request, env);
+      return handleGuideAdmin({ request, env });
     }
 
     // Not a known API route — serve the static Next.js export.

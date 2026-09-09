@@ -29,10 +29,15 @@ create table if not exists guide_usage (
  provider text not null, period text not null, used integer not null default 0,
  primary key(provider, period)
 );
+create table if not exists guide_admins (
+ email text primary key check (email = lower(email)),
+ created_at timestamptz not null default now()
+);
 alter table guide_drafts enable row level security;
 alter table guide_jobs enable row level security;
 alter table guide_usage enable row level security;
-grant all on guide_drafts,guide_jobs,guide_usage to service_role;
+alter table guide_admins enable row level security;
+grant all on guide_drafts,guide_jobs,guide_usage,guide_admins to service_role;
 -- No public policies for drafts, jobs, or usage.
 -- Tighten old child policies so unpublished parent content cannot leak.
 drop policy if exists "Public read access to search phrases" on guide_search_phrases;
