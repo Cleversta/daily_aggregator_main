@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:worker": "npm run build && npx wrangler dev --env-file .env.local",
-    "build": "node scripts/generate-guide-index.js && next build",
+    "build": "node scripts/generate-guide-index.js && rm -rf .next out && next build",
     "start": "next start",
     "fetch-news": "node scripts/fetch-news.js",
     "fetch-youtube": "node scripts/fetch-youtube.js",
