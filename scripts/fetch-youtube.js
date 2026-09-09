@@ -21,7 +21,7 @@ const feeds = [
   { category: 'music', videoCategoryId: '10' },
   { category: 'technology', videoCategoryId: '28' },
   { category: 'comedy', videoCategoryId: '23' },
-  { category: 'education', videoCategoryId: '27' },
+  { category: 'education', query: 'educational videos' },
   { category: 'news', videoCategoryId: '25' },
   // YouTube has no official anime or football chart, so these two use one
   // tightly limited search request per market each day.

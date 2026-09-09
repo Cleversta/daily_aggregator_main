@@ -19,19 +19,19 @@ export async function getYouTubeVideos({ category = 'popular', region, limit = 2
   // occupying the entire page merely because its raw view totals are larger.
   const buckets = new Map(YOUTUBE_REGIONS.map(({ code }) => [code, []]));
   for (const video of unique) buckets.get(video.region_code)?.push(video);
-  const balanced = [];
-  for (let index = 0; balanced.length < limit; index++) {
+  const balancedVideos = [];
+  for (let index = 0; balancedVideos.length < limit; index++) {
     let added = false;
     for (const { code } of YOUTUBE_REGIONS) {
       const video = buckets.get(code)?.[index];
-      if (video && !balanced.some((item) => item.video_id === video.video_id)) {
-        balanced.push(video); added = true;
-        if (balanced.length === limit) break;
+      if (video && !balancedVideos.some((item) => item.video_id === video.video_id)) {
+        balancedVideos.push(video); added = true;
+        if (balancedVideos.length === limit) break;
       }
     }
     if (!added) break;
   }
-  return balanced;
+  return balancedVideos;
 }
 
 export default async function YouTubeSeoListing({ title, eyebrow, description, category = 'popular', region, balanced = true }) {
