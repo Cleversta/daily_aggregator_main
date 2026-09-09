@@ -76,8 +76,8 @@ export default async function HomePage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <div className="space-y-14">
-        <section className="border-b border-line pb-10">
+      <div className="space-y-12 sm:space-y-14">
+        <section className="border-b border-line pb-8 sm:pb-10">
           <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-4">
             {briefingDate || 'Today’s briefing'}
           </p>
@@ -87,22 +87,11 @@ export default async function HomePage() {
           <p className="text-slate text-lg leading-relaxed mt-5 max-w-2xl">
             A focused daily read across the topics that matter to you. Every brief links back to the reporting behind it.
           </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a href="#today" className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white">Read today&apos;s briefing</a>
+            <a href="/guide" className="rounded-lg border border-line bg-white px-4 py-2 text-sm font-bold text-ink hover:border-wire">Find a practical guide</a>
+          </div>
         </section>
-
-        <section className="border-b border-line pb-10">
-          <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-2">Get it in your inbox</p>
-          <h2 className="font-display text-2xl font-bold text-ink mb-3">Never miss a briefing.</h2>
-          <p className="text-slate mb-4 max-w-xl">One email, every morning, with the day's essential stories.</p>
-          <Subscribe />
-        </section>
-
-        <HotNow />
-
-        <TopicPreferences topics={preferenceTopics} />
-
-        <SavedItems />
-
-        <CreatorIdeas ideas={creatorIdeas} />
 
         {!hasAnyLiveArticle && (
           <p className="text-slate">
@@ -110,7 +99,29 @@ export default async function HomePage() {
           </p>
         )}
 
-        <PersonalizedFeed hubs={HUBS} articlesByCategory={articlesByCategory} />
+        {hasAnyLiveArticle && <section id="today" className="scroll-mt-5 space-y-10 sm:space-y-12" aria-labelledby="today-heading">
+          <div className="flex items-end justify-between gap-4 border-b border-line pb-4">
+            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-wire">Today</p><h2 id="today-heading" className="mt-1 font-display text-3xl font-bold">Your daily briefing</h2></div>
+            {briefingDate && <span className="hidden text-sm text-slate sm:block">{briefingDate}</span>}
+          </div>
+          <PersonalizedFeed hubs={HUBS} articlesByCategory={articlesByCategory} />
+        </section>}
+
+        <HotNow />
+
+        <section className="rounded-xl border border-line bg-white p-5 sm:p-7">
+          <p className="text-xs uppercase tracking-[0.18em] font-bold text-wire mb-2">Get it in your inbox</p>
+          <div className="grid items-end gap-5 md:grid-cols-[1fr_minmax(20rem,0.8fr)]">
+            <div><h2 className="font-display text-2xl font-bold text-ink">Never miss a briefing.</h2><p className="mt-2 text-slate">One email every morning with the essential stories.</p></div>
+            <Subscribe />
+          </div>
+        </section>
+
+        <TopicPreferences topics={preferenceTopics} />
+
+        <SavedItems />
+
+        <CreatorIdeas ideas={creatorIdeas} />
       </div>
     </>
   );

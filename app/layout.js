@@ -17,9 +17,15 @@ export const metadata = {
     siteName: 'Daily Aggregator',
     type: 'website',
     locale: 'en_US',
+    images: [{ url: '/social-card.png', width: 1200, height: 630, alt: 'Daily Aggregator' }],
   },
   twitter: {
     card: 'summary_large_image',
+    images: ['/social-card.png'],
+  },
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
   },
   alternates: {
     types: {
