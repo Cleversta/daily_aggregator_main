@@ -93,9 +93,10 @@ export default function AdminGuideForm() {
   async function sendLoginLink() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) throw new Error('Enter your email address.');
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, '');
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
-      options: { emailRedirectTo: `${window.location.origin}/admin/guide` },
+      options: { emailRedirectTo: `${siteUrl}/admin/guide` },
     });
     if (error) throw error;
     setMessage('Check your email and open the Supabase sign-in link in this browser.');
