@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:worker": "npm run build && npx wrangler dev --env-file .env.local",
+    "dev:worker": "npm run build && npm run preview:worker",
     "build": "node scripts/generate-guide-index.js && rm -rf .next out && next build",
     "start": "next start",
     "fetch-news": "node scripts/fetch-news.js",
@@ -15,7 +15,8 @@
     "generate-guide-index": "node scripts/generate-guide-index.js",
     "check-guide-links": "node scripts/check-guide-links.js",
     "process-guide-jobs": "node scripts/process-guide-jobs.mjs",
-    "test:guide": "node tests/guide-workflow.test.mjs"
+    "test:guide": "node tests/guide-workflow.test.mjs",
+    "preview:worker": "node scripts/prepare-worker-assets.mjs && npx wrangler dev --assets .wrangler/local-assets --port 8787 --env-file .env.local"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

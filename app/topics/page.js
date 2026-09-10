@@ -11,7 +11,7 @@ export const metadata = {
 async function getTopicRows() {
   const { data, error } = await supabase
     .from('topics')
-    .select('slug, snapshot_summary, freshness_note, is_stale, last_updated_at, change_summary');
+    .select('slug, snapshot_summary, freshness_note, is_stale, last_checked_at, last_updated_at, change_summary');
 
   if (error) {
     console.error('Failed to load topics at build time:', error.message);
@@ -43,6 +43,7 @@ export default async function TopicsIndexPage() {
         freshness_note: row.freshness_note,
         is_stale: row.is_stale,
         last_updated_at: row.last_updated_at,
+        last_checked_at: row.last_checked_at,
         change_summary: row.change_summary,
       };
     });

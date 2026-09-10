@@ -7,6 +7,7 @@ export async function getYouTubeVideos({ category = 'popular', region, limit = 2
   let query = supabase.from('youtube_videos')
     .select('video_id,category,title,channel_title,thumbnail_url,video_url,published_at,duration,region_code,view_count,fetched_at')
     .eq('category', category)
+    .gte('fetched_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
     .order('view_count', { ascending: false })
     .limit(region ? limit : 160);
   if (region) query = query.eq('region_code', region);
@@ -49,11 +50,12 @@ export default async function YouTubeSeoListing({ title, eyebrow, description, c
       <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate">{description}</p>
       {updatedAt && <p className="mt-3 text-xs uppercase tracking-wide text-slate">Updated {new Date(updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>}
     </section>
-    {videos.length ? <YouTubeVideoGrid videos={videos} /> : <p className="rounded-lg border border-line bg-white p-5 text-slate">Videos for this page will appear after the next daily YouTube update.</p>}
-    <nav className="mt-12 border-t border-line pt-7" aria-label="Explore YouTube trends">
+
+    <nav className="mb-8 border-b border-line pb-7" aria-label="Explore YouTube trends">
       <h2 className="font-display text-2xl font-bold">Explore more YouTube trends</h2>
-      <div className="mt-4 flex flex-wrap gap-2">{YOUTUBE_CATEGORIES.slice(0, 11).map((item) => <Link key={item.slug} href={`/youtube/category/${item.slug}`} className="rounded-full border border-line bg-white px-3 py-2 text-sm font-medium hover:border-wire">{item.label}</Link>)}</div>
+      <div className="mt-4 flex flex-wrap gap-2">{YOUTUBE_CATEGORIES.map((item) => <Link key={item.slug} href={`/youtube/category/${item.slug}`} className="rounded-full border border-line bg-white px-3 py-2 text-sm font-medium hover:border-wire">{item.label}</Link>)}</div>
       <div className="mt-3 flex flex-wrap gap-2">{YOUTUBE_REGIONS.map((item) => <Link key={item.code} href={`/youtube/country/${item.code.toLowerCase()}`} className="text-sm text-slate underline decoration-wire/40 underline-offset-4 hover:text-ink">{item.name}</Link>)}</div>
     </nav>
+    {videos.length ? <YouTubeVideoGrid videos={videos} /> : <p className="rounded-lg border border-line bg-white p-5 text-slate">Videos for this page will appear after the next daily YouTube update.</p>}
   </>;
 }

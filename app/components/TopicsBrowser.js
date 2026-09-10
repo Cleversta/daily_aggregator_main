@@ -123,6 +123,7 @@ export default function TopicsBrowser({ topics, hubs }) {
                     <div className="flex items-center gap-2">
                       <span className="font-display font-bold text-ink truncate">{topic.topicName}</span>
                       <NewBadge fetchedAt={topic.last_updated_at} />
+                {topic.last_checked_at && <span className="text-xs text-slate">Checked {new Date(topic.last_checked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })} UTC</span>}
                       {topic.is_stale && <span className="text-xs text-amber-600 shrink-0">stale</span>}
                     </div>
                     <p className="text-xs text-slate truncate">
@@ -158,6 +159,7 @@ export default function TopicsBrowser({ topics, hubs }) {
                   {topic.topicCategory.replace(/-/g, ' ')}
                 </span>
                 <NewBadge fetchedAt={topic.last_updated_at} />
+                {topic.last_checked_at && <span className="text-xs text-slate">Checked {new Date(topic.last_checked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })} UTC</span>}
                 {topic.is_stale && <span className="text-xs text-amber-600">stale</span>}
               </div>
               <h3 className="font-display text-lg font-bold text-ink leading-snug mb-2">{topic.topicName}</h3>

@@ -16,16 +16,19 @@ function formatViewCount(value) {
 }
 
 export default function HotNow() {
+  const [checkedAt, setCheckedAt] = useState(null);
   const [videos, setVideos] = useState([]);
 
   useEffect(() => {
     supabase
       .from('youtube_videos')
-      .select('video_id, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count')
+      .select('video_id, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count, fetched_at')
       .eq('category', 'popular')
+      .gte('fetched_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
       .order('view_count', { ascending: false })
       .limit(160)
       .then(({ data }) => {
+        setCheckedAt((data || []).map(video => video.fetched_at).filter(Boolean).sort().at(-1) || null);
         const grouped = new Map();
         for (const video of data || []) {
           const existing = grouped.get(video.video_id);
@@ -59,6 +62,7 @@ export default function HotNow() {
           Browse YouTube <span aria-hidden="true">→</span>
         </Link>
       </div>
+      {checkedAt && <p className="mb-4 text-xs text-slate">Charts checked {new Date(checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. Dates on videos are upload dates; older uploads can still trend.</p>}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {videos.map((video) => (
           <YouTubePlayer key={video.video_id} videoId={video.video_id} title={video.title} className="group block text-left">
@@ -75,7 +79,7 @@ export default function HotNow() {
             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-wire">Video</p>
             <h3 className="mt-1 font-display text-lg font-bold leading-snug text-ink group-hover:text-wire">{video.title}</h3>
             <p className="mt-2 text-xs uppercase tracking-wide text-slate">
-              {video.channel_title} <span aria-hidden="true">·</span> {formatViewCount(video.view_count)} views <span aria-hidden="true">·</span> {formatPublishedAt(video.published_at)}
+              {video.channel_title} <span aria-hidden="true">·</span> {formatViewCount(video.view_count)} views <span aria-hidden="true">·</span> Uploaded {formatPublishedAt(video.published_at)}
             </p>
           </YouTubePlayer>
         ))}

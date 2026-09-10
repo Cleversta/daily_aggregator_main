@@ -1,4 +1,5 @@
 import './globals.css';
+import { getSearchItems } from '../lib/site-search';
 import Image from 'next/image';
 import { supabase } from '../lib/supabase-client';
 import Navbar from './components/Navbar';
@@ -65,9 +66,10 @@ async function getTopicFreshness() {
 }
 
 export default async function RootLayout({ children }) {
-  const [categoryFreshness, topicFreshness] = await Promise.all([
+  const [categoryFreshness, topicFreshness, searchItems] = await Promise.all([
     getCategoryFreshness(),
     getTopicFreshness(),
+    getSearchItems(),
   ]);
 
   return (
@@ -94,11 +96,11 @@ export default async function RootLayout({ children }) {
                 <span className="absolute -bottom-0.5 left-0 h-0.5 w-0 bg-wire transition-all duration-300 group-hover:w-full" aria-hidden="true" />
               </a>
               <p className="mt-1 hidden text-sm text-slate sm:block animate-[fadeSlideDown_0.5s_ease-out_0.05s_both]">
-                No feeds to manage, no scrolling required — just what happened, summarized once a day.
+                News worth your time. Ideas worth making.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
-              <SearchTrigger />
+              <SearchTrigger items={searchItems} />
               <NextBrief />
             </div>
           </div>
@@ -111,6 +113,7 @@ export default async function RootLayout({ children }) {
           <div className="max-w-5xl mx-auto px-5 sm:px-6 py-8 text-sm text-slate">
             <p>Daily summaries are original syntheses based on linked reporting. Check the original sources for the full story.</p>
             <nav className="mt-4 flex flex-wrap gap-x-5 gap-y-2" aria-label="Footer navigation">
+              <a href="/creator-ideas" className="hover:text-ink">Creator Ideas</a>
               <a href="/about" className="hover:text-ink">About</a>
               <a href="/editorial-policy" className="hover:text-ink">Editorial policy</a>
               <a href="/privacy" className="hover:text-ink">Privacy</a>

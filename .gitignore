@@ -5,3 +5,6 @@ node_modules/
 .DS_Store
 *.log
 out/
+
+# Snapshot served by the local Worker preview
+.wrangler/local-assets/

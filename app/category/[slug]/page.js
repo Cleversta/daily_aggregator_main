@@ -98,9 +98,10 @@ export default async function CategoryPage({ params }) {
   if (!article) {
     return (
       <div>
+        <Link href="/" className="action-link">← Browse latest stories</Link>
         <p className="text-xs uppercase tracking-wide text-wire mb-2">{category.title}</p>
         <p className="text-slate">
-          No brief for this category yet — run <code>npm run fetch-news</code> and rebuild.
+          A new brief is on its way. Browse another topic in the meantime.
         </p>
       </div>
     );
@@ -141,9 +142,37 @@ export default async function CategoryPage({ params }) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
-      <article className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
+      <article className="mx-auto max-w-4xl bg-white border border-line rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-5 sm:p-8 lg:p-10 max-w-3xl mx-auto">
+          <Link href="/" className="action-link mb-5">← All stories</Link>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span
+              className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
+              style={{ background: category.accent.pillBg, color: category.accent.pillText }}
+            >
+              <span aria-hidden="true">{category.icon}</span> {category.title}
+            </span>
+            <span className="text-xs text-slate">· {category.hubTitle}</span>
+            {article.is_stale && (
+              <span className="text-xs text-slate">
+                (last updated {new Date(article.fetched_at).toLocaleDateString()})
+              </span>
+            )}
+          </div>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink mb-5 leading-tight">
+            {article.headline}
+          </h1>
+          <p className="text-sm text-slate mb-8">
+            Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
+          </p>
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-y border-line py-3">
+            <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
+            <ShareButtons title={article.headline} />
+          </div>
+          <nav aria-label="In this brief" className="mb-6 flex flex-wrap gap-4 text-sm font-bold"><a href="#brief" className="action-link">The brief</a>{article.watch_next && <a href="#watch-next" className="action-link">What’s next</a>}<a href="#sources" className="action-link">Sources</a></nav>
+          {article.seo_description && <aside className="mb-8 rounded-xl bg-[#F6F0E1] p-5"><h2 className="text-xs font-bold uppercase tracking-widest text-slate">At a glance</h2><p className="mt-2 text-lg leading-relaxed text-ink">{article.seo_description}</p></aside>}
         {(article.video_thumbnail_url || article.image_url) && (
           <div className="relative aspect-[16/9] bg-slate-100">
             {article.video_url ? (
@@ -166,41 +195,16 @@ export default async function CategoryPage({ params }) {
             )}
           </div>
         )}
-        <div className="p-6 sm:p-8 lg:p-10 max-w-3xl">
-          <div className="flex items-center gap-2 mb-3">
-            <span
-              className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
-              style={{ background: category.accent.pillBg, color: category.accent.pillText }}
-            >
-              <span aria-hidden="true">{category.icon}</span> {category.title}
-            </span>
-            <span className="text-xs text-slate">· {category.hubTitle}</span>
-            {article.is_stale && (
-              <span className="text-xs text-slate">
-                (last updated {new Date(article.fetched_at).toLocaleDateString()})
-              </span>
-            )}
-          </div>
-          <h1 className="font-display text-3xl font-bold text-ink mb-5 leading-tight">
-            {article.headline}
-          </h1>
-          <p className="text-sm text-slate mb-8">
-            Updated {updatedDate} <span aria-hidden="true">·</span> {readingMinutes}-minute read
-          </p>
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-y border-line py-3">
-            <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
-            <ShareButtons title={article.headline} />
-          </div>
-          <section className="border-y border-line py-7 mb-8">
+          <section id="brief" className="border-b border-line py-7 mb-8">
             <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <p className="text-xs uppercase tracking-[0.16em] font-bold text-wire">The brief</p>
+              <h2 className="font-display text-2xl font-bold text-ink">The brief</h2>
               <span className="text-xs text-slate">Original synthesis based on linked reporting</span>
             </div>
-            <p className="text-slate leading-relaxed text-lg whitespace-pre-line">{article.summary}</p>
+            <div className="space-y-5 text-ink leading-[1.85] text-lg">{article.summary.split(/\n+/).filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
           </section>
           {article.watch_next && (
-            <section className="mb-8 rounded-lg border border-line bg-[#FCF8ED] p-5 sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-wire">What to watch next</p>
+            <section id="watch-next" className="mb-8 rounded-lg border border-line bg-[#FCF8ED] p-5 sm:p-6">
+              <h2 className="font-display text-xl font-bold">What to watch next</h2>
               <p className="mt-2 text-base leading-relaxed text-ink">{article.watch_next}</p>
             </section>
           )}
@@ -229,8 +233,8 @@ export default async function CategoryPage({ params }) {
             </section>
           )}
 
-          <div className="border-t border-line pt-6">
-            <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>
+          <section id="sources" className="border-t border-line pt-6">
+            <h2 className="font-display text-xl font-bold mb-2">Read the original reporting</h2><p className="mb-4 text-sm text-slate">This brief is an original synthesis. Follow the sources for full context.</p>
             <ul className="space-y-3 text-sm">
               {(article.sources || []).map((source, i) => (
                 <li key={i} className="flex items-start gap-3">
@@ -246,7 +250,7 @@ export default async function CategoryPage({ params }) {
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
           <Link href="/" className="inline-block mt-8 text-sm text-slate hover:text-ink">
             ← Back to today's briefing
           </Link>

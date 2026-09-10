@@ -20,11 +20,12 @@ export default function TopicPreferences({ topics }) {
   }, [topics]);
 
   function toggleTopic(slug) {
-    setSelected((current) => {
-      const next = current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug];
+    const next = selected.includes(slug) ? selected.filter((item) => item !== slug) : [...selected, slug];
+    try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+      setSelected(next);
+      window.dispatchEvent(new Event('daily-aggregator-topics-changed'));
+    } catch { /* Keep the existing selection when browser storage is unavailable. */ }
   }
 
   if (!isReady || topics.length === 0) return null;

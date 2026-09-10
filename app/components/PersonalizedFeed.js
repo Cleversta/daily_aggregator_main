@@ -3,124 +3,45 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { NewBadge } from './Freshness';
-
-const TOPICS_STORAGE_KEY = 'daily-aggregator-topics';
+import SaveBrief from './SaveBrief';
+import Icon from './Icon';
 
 export default function PersonalizedFeed({ hubs, articlesByCategory }) {
-  // undefined = haven't read localStorage yet, so we render the default
-  // (unpersonalized) order on first paint and avoid a layout jump.
-  const [selected, setSelected] = useState(undefined);
-
+  const [selected, setSelected] = useState([]);
+  const [filter, setFilter] = useState('all');
   useEffect(() => {
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(TOPICS_STORAGE_KEY) || '[]');
-      setSelected(Array.isArray(stored) ? stored : []);
-    } catch {
-      setSelected([]);
+    function update() {
+      try { const value = JSON.parse(localStorage.getItem('daily-aggregator-topics') || '[]'); setSelected(Array.isArray(value) ? value : []); } catch { setSelected([]); }
     }
+    update();
+    window.addEventListener('daily-aggregator-topics-changed', update);
+    return () => window.removeEventListener('daily-aggregator-topics-changed', update);
   }, []);
-
-  const orderedHubs = (() => {
-    if (!selected || selected.length === 0) return hubs;
-
-    const hubHasSelectedTopic = (hub) => hub.categories.some((c) => selected.includes(c.slug));
-    const followed = hubs.filter(hubHasSelectedTopic);
-    const rest = hubs.filter((hub) => !hubHasSelectedTopic(hub));
-    return [...followed, ...rest];
-  })();
-
+  const stories = hubs.flatMap(hub => hub.categories.filter(category => category.active && articlesByCategory[category.slug]).map(category => ({ category, article: articlesByCategory[category.slug], hub })));
+  const visible = stories.filter(({ category }) => filter === 'all' || selected.includes(category.slug));
   return (
-    <>
-      {orderedHubs.map((hub) => {
-        const activeInHub = hub.categories.filter((c) => c.active);
-        const comingSoonInHub = hub.categories.filter((c) => !c.active);
-        const storyGridClass =
-          activeInHub.length === 1 ? 'grid gap-5' : 'grid gap-5 md:grid-cols-2 lg:grid-cols-3';
-        const isFollowedHub = selected && selected.length > 0 && activeInHub.some((c) => selected.includes(c.slug));
-
-        if (activeInHub.length === 0) return null;
-
-        return (
-          <section key={hub.slug}>
-            <div className="flex items-baseline justify-between gap-4 mb-5">
-              <h2 className="font-display text-2xl font-bold text-ink flex items-center gap-2">
-                <span className="font-body text-xl font-normal text-wire" aria-hidden="true">{hub.icon}</span>
-                {hub.title}
-              </h2>
-              <span className="text-xs uppercase tracking-wide text-slate">
-                {isFollowedHub ? 'Following' : 'Latest'}
-              </span>
-            </div>
-
-            <div className={storyGridClass}>
-              {activeInHub.map((cat) => {
-                const article = articlesByCategory[cat.slug];
-                if (!article) return null;
-                const isOnlyStory = activeInHub.length === 1;
-
-                return (
-                  <Link
-                    key={cat.slug}
-                    href={`/category/${cat.slug}`}
-                    className={`block bg-white border border-line rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
-                      isOnlyStory ? 'md:grid md:grid-cols-[minmax(18rem,0.9fr)_1.1fr]' : ''
-                    }`}
-                  >
-                    {(article.video_thumbnail_url || article.image_url) && (
-                      <div className={`relative bg-slate-100 ${isOnlyStory ? 'aspect-[16/10] md:aspect-auto' : 'aspect-[16/10]'}`}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={article.video_thumbnail_url || article.image_url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                        {article.video_url && (
-                          <span className="absolute inset-0 flex items-center justify-center" aria-label="Video available">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/70 pl-0.5 text-lg text-white" aria-hidden="true">
-                              ▶
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div className={`p-5 ${isOnlyStory ? 'md:p-8 md:self-center' : ''}`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full"
-                          style={{ background: hub.accent.pillBg, color: hub.accent.pillText }}
-                        >
-                          <span aria-hidden="true">{cat.icon}</span> {cat.title}
-                        </span>
-                        <NewBadge fetchedAt={article.fetched_at} />
-                        {article.is_stale && (
-                          <span className="text-xs text-slate">
-                            (last updated {new Date(article.fetched_at).toLocaleDateString()})
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-display text-xl font-bold text-ink leading-snug mb-2">
-                        {article.headline}
-                      </h3>
-                      <p className="text-sm text-slate leading-relaxed line-clamp-3">
-                        {article.summary}
-                      </p>
-                      <span className="inline-block mt-4 text-xs font-bold uppercase tracking-wide text-ink">
-                        Read brief <span aria-hidden="true">→</span>
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {comingSoonInHub.length > 0 && (
-              <p className="text-sm text-slate/60 mt-4">
-                Also in this hub soon: {comingSoonInHub.map((c) => c.title).join(', ')}
-              </p>
-            )}
-          </section>
-        );
-      })}
-    </>
+    <div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex rounded-xl border border-line bg-white p-1" aria-label="Filter stories">{[['all', 'Latest stories'], ['following', 'Following']].map(([value, label]) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`min-h-11 rounded-lg px-4 text-sm font-bold transition-colors ${filter === value ? 'bg-ink text-white' : 'text-slate hover:bg-paper'}`}>{label}</button>)}</div>
+        <a href="#preferences" className="action-link">Choose your topics <Icon name="arrow" className="h-4 w-4" /></a>
+      </div>
+      {visible.length === 0 && <p className="rounded-xl border border-line bg-white p-6 text-slate">Follow a topic below to build your own briefing. <a href="#preferences" className="font-bold underline">Choose topics</a></p>}
+      <div className="grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">{visible.map(({ category, article, hub }, index) => (
+        <article key={category.slug} className="surface-card overflow-hidden motion-enter" style={{ animationDelay: `${index * 50}ms` }}>
+          <Link href={`/category/${category.slug}`} tabIndex={-1} aria-hidden="true" className="block overflow-hidden">
+            {(article.video_thumbnail_url || article.image_url) ? <img src={article.video_thumbnail_url || article.image_url} alt="" loading="lazy" className="aspect-video w-full object-cover" /> : <div className="flex aspect-[2.4] items-center justify-between bg-ink p-6 text-white"><Icon name="news" className="h-10 w-10 text-[#F0C674]" /><span className="text-xs font-bold uppercase tracking-widest">Daily briefing</span></div>}
+          </Link>
+          <div className="p-5">
+            <div className="mb-3 flex flex-wrap items-center gap-2"><span className="rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: hub.accent.pillBg, color: hub.accent.pillText }}>{category.title}</span><NewBadge fetchedAt={article.fetched_at} /></div>
+            <h3 className="font-display text-xl font-bold leading-snug"><Link href={`/category/${category.slug}`} className="hover:text-wire">{article.headline}</Link></h3>
+            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate">{article.summary}</p>
+            <details className="disclosure mt-2"><summary className="action-link cursor-pointer py-2 text-xs">Quick summary <Icon name="chevron" className="h-4 w-4" /></summary><p className="disclosure-content pb-3 text-sm leading-relaxed text-slate">{article.summary}</p></details>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3"><span className="flex items-center gap-1.5 text-xs text-slate"><Icon name="clock" className="h-3.5 w-3.5" />{Math.max(1, Math.ceil((article.summary || '').split(/\s+/).length / 200))} min brief</span><SaveBrief slug={category.slug} title={article.headline} summary={article.summary} /></div>
+            <Link href={`/category/${category.slug}`} className="action-link mt-2">Read full brief <Icon name="arrow" className="h-4 w-4" /></Link>
+            {article.is_stale && <p className="mt-2 text-xs text-slate">Last updated {new Date(article.fetched_at).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>}
+          </div>
+        </article>
+      ))}</div>
+    </div>
   );
 }

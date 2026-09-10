@@ -24,8 +24,9 @@ export default function YouTubeBrowser() {
 
   function loadVideos(category, region = selectedRegion) {
     let query = supabase.from('youtube_videos')
-      .select('video_id, category, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count')
-      .eq('category', category).order('view_count', { ascending: false }).limit(200);
+      .select('video_id, category, title, channel_title, thumbnail_url, video_url, published_at, duration, region_code, view_count, fetched_at')
+      .eq('category', category)
+    .gte('fetched_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()).order('view_count', { ascending: false }).limit(200);
     if (region !== 'global') query = query.eq('region_code', region);
     query.then(({ data }) => setRows(data || []));
   }
@@ -68,9 +69,11 @@ export default function YouTubeBrowser() {
         {filters.map((filter) => (
           <button
             key={filter.id}
+            type="button"
+            aria-pressed={selectedFilter === filter.id}
             onClick={() => chooseFilter(filter.id)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              selectedFilter === filter.id ? 'bg-ink text-white' : 'border border-line bg-white text-slate hover:text-ink'
+            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+              selectedFilter === filter.id ? 'border-ink bg-ink text-white' : 'border-line bg-white text-slate hover:text-ink'
             }`}
           >
             {filter.label}
@@ -98,7 +101,7 @@ export default function YouTubeBrowser() {
             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-wire">Video</p>
             <h2 className="mt-1 font-display text-xl font-bold leading-snug text-ink group-hover:text-wire">{video.title}</h2>
             <p className="mt-2 text-xs uppercase tracking-wide text-slate">
-              {video.channel_title} <span aria-hidden="true">·</span> {formatViewCount(video.view_count)} views <span aria-hidden="true">·</span> {formatPublishedAt(video.published_at)}
+              {video.channel_title} <span aria-hidden="true">·</span> {formatViewCount(video.view_count)} views <span aria-hidden="true">·</span> Uploaded {formatPublishedAt(video.published_at)}
             </p>
             </YouTubePlayer>
           ))}

@@ -100,7 +100,14 @@ see [Guide setup and operations](GUIDE_WORKFLOW.md).
    npm run fetch-topics:all  # one-time: seed all 100 topics at once
    npm run send-digest       # emails confirmed subscribers (needs subscribers.sql + Resend)
    ```
-5. **Run the site locally**: `npm run dev`
+5. **Run the site locally**: `npm run dev` for live Next.js UI updates.
+
+   To test the Cloudflare Worker and its endpoints, use `npm run dev:worker`.
+   This builds the site and serves a snapshot at `http://localhost:8787`.
+   Stop the existing preview before starting another one. To reuse an already
+   completed build, run `npm run preview:worker`. The preview uses
+   `.wrangler/local-assets` so rebuilding `out` does not interrupt it.
+   Restart with `npm run dev:worker` when you want the preview to include new UI changes.
 6. **Deploy**: connect the repo to Cloudflare Pages (Workers & Pages →
    Create → Pages → Connect to Git; framework preset "Next.js (Static HTML
    Export)"; build command `npm run build`; output directory `out`). Add all

@@ -7,6 +7,7 @@ html {
   /* FIX: without this, the whole page (not just the nav row) becomes
      horizontally scrollable whenever any child is wider than the viewport —
      which is what let the header/title get dragged off-screen on mobile. */
+  /* Increase the base font-size so Tailwind `rem` sizes render slightly larger */
   overflow-x: hidden;
 }
 
@@ -23,5 +24,63 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-2xl border border-line bg-white shadow-sm;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+  .action-link {
+    @apply inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ink;
+  }
+  .action-link:hover { color: #8A6B1F; }
+  .nav-destination {
+    @apply flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition-colors sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm;
+  }
+  .home-hero {
+    @apply relative overflow-hidden rounded-3xl border border-line p-5 sm:p-9;
+    background: radial-gradient(ellipse at 95% 0%, #EDE1C4 0%, transparent 55%), #F6F3EB;
+  }
+}
+
+:where(a, button, input, select, summary):focus-visible {
+  outline: 3px solid #B08D3E;
+  outline-offset: 4px;
+}
+:where(input, select) { min-height: 44px; }
+[id] { scroll-margin-top: 1.5rem; }
+.disclosure > summary { list-style: none; }
+.disclosure > summary::-webkit-details-marker { display: none; }
+.disclosure[open] > summary > svg:last-child { transform: rotate(180deg); }
+.disclosure > summary svg { transition: transform 180ms ease; }
+.disclosure-content { overflow-wrap: anywhere; }
+@media (hover: hover) {
+  .surface-card:hover { transform: translateY(-3px); border-color: #B08D3E80; box-shadow: 0 10px 28px #14213B0D; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+  .motion-enter, .disclosure[open] > .disclosure-content { animation: fadeSlideDown 240ms ease both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.site-search-dialog { max-height: 90dvh; overflow-y: auto; }
+body:has(.site-search-dialog[open]) { overflow: hidden; }
+article[id^="idea-"]:target { outline: 3px solid #B08D3E; outline-offset: 4px; }
+
+@layer components {
+  .save-toggle {
+    @apply inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-transparent px-2 text-xs font-bold uppercase tracking-wide text-ink transition-colors hover:border-wire;
+  }
+  .save-toggle.is-saved {
+    @apply border-line bg-[#F6F0E1] text-[#80621F];
   }
 }
