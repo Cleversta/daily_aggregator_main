@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { NewBadge } from './Freshness';
 import SaveBrief from './SaveBrief';
 import Icon from './Icon';
+import TopicArtwork from './TopicArtwork';
 
 export default function PersonalizedFeed({ hubs, articlesByCategory }) {
   const [selected, setSelected] = useState([]);
@@ -28,8 +29,8 @@ export default function PersonalizedFeed({ hubs, articlesByCategory }) {
       {visible.length === 0 && <p className="rounded-xl border border-line bg-white p-6 text-slate">Follow a topic below to build your own briefing. <a href="#preferences" className="font-bold underline">Choose topics</a></p>}
       <div className="grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">{visible.map(({ category, article, hub }, index) => (
         <article key={category.slug} className="surface-card overflow-hidden motion-enter" style={{ animationDelay: `${index * 50}ms` }}>
-          <Link href={`/category/${category.slug}`} tabIndex={-1} aria-hidden="true" className="block overflow-hidden">
-            {(article.video_thumbnail_url || article.image_url) ? <img src={article.video_thumbnail_url || article.image_url} alt="" loading="lazy" className="aspect-video w-full object-cover" /> : <div className="flex aspect-[2.4] items-center justify-between bg-ink p-6 text-white"><Icon name="news" className="h-10 w-10 text-[#F0C674]" /><span className="text-xs font-bold uppercase tracking-widest">Daily briefing</span></div>}
+          <Link href={`/category/${category.slug}`} tabIndex={-1} aria-hidden="true" className="story-art block overflow-hidden">
+            {(article.video_thumbnail_url || article.image_url) ? <img src={article.video_thumbnail_url || article.image_url} alt="" loading="lazy" className="aspect-video w-full object-cover" /> : <TopicArtwork topic={category.slug} className="aspect-video w-full" />}
           </Link>
           <div className="p-5">
             <div className="mb-3 flex flex-wrap items-center gap-2"><span className="rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: hub.accent.pillBg, color: hub.accent.pillText }}>{category.title}</span><NewBadge fetchedAt={article.fetched_at} /></div>

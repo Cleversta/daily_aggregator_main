@@ -1,6 +1,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import GuideArtwork from '../../components/GuideArtwork';
 import {
   getPublishedIntents,
   getIntentBySlug,
@@ -116,6 +117,7 @@ export default async function GuideDetailPage({ params }) {
             <span aria-current="page">{intent.name}</span>
           </nav>
 
+          <div className="grid items-center gap-6 md:grid-cols-[1.5fr_1fr]"><div>
           {category && (
             <span className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
               {category.icon} {category.title}
@@ -132,6 +134,7 @@ export default async function GuideDetailPage({ params }) {
             </p>
           )}
 
+          </div><GuideArtwork category={intent.category} className="mb-6 w-full rounded-2xl" /></div>
           <p className="mb-6 text-sm text-slate">
             {intent.verified_on && intent.verification !== 'unverified' && <>{intent.verification === 'tested' ? 'Personally tested' : 'Checked against documentation'} · {intent.verified_on}</>}
             {intent.updated_at && <> · Updated {new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(intent.updated_at))}</>}
@@ -148,7 +151,7 @@ export default async function GuideDetailPage({ params }) {
             <div className="min-w-0">
               {intent.steps?.length > 0 && <section id="instructions" className="scroll-mt-6 mb-10">
                 <h2 className="font-display text-2xl font-bold mb-4">How to do it</h2>
-                <ol className="space-y-4">{intent.steps.map((step, i) => <li key={i} className="flex gap-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-sm font-bold text-white">{i + 1}</span><span className="pt-0.5 leading-relaxed">{step}</span></li>)}</ol>
+                <ol className="guide-steps space-y-4">{intent.steps.map((step, i) => <li key={i} className="flex gap-4 rounded-xl border border-line bg-[#FAFAF6] p-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-sm font-bold text-white">{i + 1}</span><span className="pt-0.5 leading-relaxed">{step}</span></li>)}</ol>
               </section>}
 
               {intent.sources?.length > 0 && <section id="sources" className="scroll-mt-6 mb-10"><h2 className="font-display text-2xl font-bold mb-3">Sources</h2><p className="mb-3 text-sm text-slate">Documentation and pages checked when preparing this guide.</p><ul className="space-y-2">{intent.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline text-sm">{source.title || source.url}</a></li>)}</ul></section>}

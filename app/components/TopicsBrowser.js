@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import TopicCover from './TopicCover';
 import { NewBadge, IfNew } from './Freshness';
 
 // topics: flattened array — { slug, topicName, topicCategory, hubSlug, hubTitle,
@@ -9,7 +10,7 @@ import { NewBadge, IfNew } from './Freshness';
 export default function TopicsBrowser({ topics, hubs }) {
   const [query, setQuery] = useState('');
   const [activeHub, setActiveHub] = useState('all');
-  const [view, setView] = useState('list'); // 'list' | 'grid'
+  const [view, setView] = useState('grid'); // 'list' | 'grid'
 
   const hubCounts = useMemo(() => {
     const counts = {};
@@ -118,7 +119,7 @@ export default function TopicsBrowser({ topics, hubs }) {
                 className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-[#FCF8ED] transition-colors"
               >
                 <div className="min-w-0 flex items-center gap-3">
-                  <span className="text-base shrink-0" aria-hidden="true">{topic.hubIcon}</span>
+                  <TopicCover topic={topic} compact className="h-12 w-16 shrink-0 rounded-lg" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-display font-bold text-ink truncate">{topic.topicName}</span>
@@ -152,9 +153,11 @@ export default function TopicsBrowser({ topics, hubs }) {
             <Link
               key={topic.slug}
               href={`/topic/${topic.slug}`}
-              className="block bg-white border border-line rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
+              className="topic-visual-card surface-card block overflow-hidden"
             >
-              <div className="flex items-center gap-2 mb-2">
+              <TopicCover topic={topic} />
+              <div className="p-5">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
                   {topic.topicCategory.replace(/-/g, ' ')}
                 </span>
@@ -176,6 +179,7 @@ export default function TopicsBrowser({ topics, hubs }) {
                 <span className="text-xs font-bold uppercase tracking-wide text-ink">
                   Read <span aria-hidden="true">→</span>
                 </span>
+              </div>
               </div>
             </Link>
           ))}

@@ -6,6 +6,7 @@ import { getCategoryBySlug } from '../../../lib/categories';
 import { getRelatedCategorySlug } from '../../../lib/related-topics';
 import { NewBadge } from '../../components/Freshness';
 import ShareButtons from '../../components/ShareButtons';
+import TopicCover from '../../components/TopicCover';
 
 // Static export needs every param pre-declared at build time — every topic
 // gets a page (unlike categories, there's no active/inactive split here
@@ -82,6 +83,7 @@ export default async function TopicPage({ params }) {
   if (!row) {
     return (
       <div>
+        <TopicCover topic={topic} className="mb-6 rounded-xl" />
         <p className="text-xs uppercase tracking-wide text-wire mb-2">{topic.topicName}</p>
         <p className="text-slate">
           No content for this topic yet — run <code>npm run fetch-topics</code> and rebuild.
@@ -137,6 +139,7 @@ export default async function TopicPage({ params }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <article className="bg-white border border-line rounded-xl overflow-hidden shadow-sm">
+        <TopicCover topic={topic} className="topic-cover-detail" />
         <div className="p-6 sm:p-8 lg:p-10 max-w-3xl">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <span className="text-[10px] uppercase tracking-wide font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">

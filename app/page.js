@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase-client';
 import { HUBS } from '../lib/categories';
 import Icon from './components/Icon';
+import BriefingIllustration from './components/BriefingIllustration';
 import HotNow from './components/HotNow';
 import CreatorIdeas from './components/CreatorIdeas';
 import TopicPreferences from './components/TopicPreferences';
@@ -79,13 +80,16 @@ export default async function HomePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="space-y-12 sm:space-y-14">
         <section className="home-hero motion-enter">
-          <div className="relative max-w-3xl">
+          <div className="hero-content-grid">
+          <div className="relative z-10 max-w-3xl">
             <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate"><span className="h-2 w-2 rounded-full bg-wire" />{briefingDate || 'Your daily catch-up'}</p>
             <h1 className="max-w-2xl font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-6xl">Stay curious.<br />Get to the good stuff.</h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-slate sm:text-lg">Your daily shortcut to the stories that matter, fresh content ideas, and practical guides.</p>
-            <a href="#today" className="mt-6 inline-flex min-h-12 items-center gap-3 rounded-xl bg-ink px-5 text-sm font-bold text-white transition-colors hover:bg-ink/90">Catch up on the news <Icon name="arrow" /></a>
+            <a href="#today" className="hero-cta mt-6 inline-flex min-h-12 items-center gap-3 rounded-xl bg-ink px-5 text-sm font-bold text-white transition-colors hover:bg-ink/90">Catch up on the news <Icon name="arrow" /></a>
           </div>
-          <div className="relative mt-8 grid gap-3 sm:grid-cols-3">
+          <BriefingIllustration />
+          </div>
+          <div className="hero-destinations relative z-10 mt-8 grid gap-3 sm:grid-cols-3">
             {[
               { href: '#today', icon: 'news', title: 'Get informed', text: 'Big stories. Short reads.' },
               { href: '/creator-ideas', icon: 'sparkles', title: 'Find your next idea', text: 'Hooks, scripts & ready-to-use prompts.' },

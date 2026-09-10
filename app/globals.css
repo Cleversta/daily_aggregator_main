@@ -84,3 +84,88 @@ article[id^="idea-"]:target { outline: 3px solid #B08D3E; outline-offset: 4px; }
     @apply border-line bg-[#F6F0E1] text-[#80621F];
   }
 }
+
+/* Editorial artwork gives the landing page depth without remote assets. */
+.hero-content-grid { display: grid; align-items: center; gap: 1rem; }
+.briefing-illustration { position: relative; width: 100%; max-width: 450px; height: 390px; margin-inline: auto; }
+.illustration-orbit { position: absolute; border: 1px solid #B08D3E30; border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.illustration-orbit-outer { width: 370px; height: 370px; }
+.illustration-orbit-inner { width: 290px; height: 290px; background: #E7D8B340; }
+.illustration-sheet { position: absolute; width: 244px; height: 324px; left: calc(50% - 122px); top: 30px; border-radius: 14px; }
+.illustration-sheet-back { background: #C6D5CC; transform: rotate(-12deg); border: 1px solid #ADC2B5; }
+.illustration-sheet-front { background: #FFFCF5; border: 1px solid #DED7C8; padding: 19px; transform: rotate(6deg); box-shadow: 0 22px 45px #24332420; }
+.illustration-chip { position: absolute; display: flex; align-items: center; gap: 10px; border: 1px solid #E6DECF; border-radius: 14px; background: #FFFEFA; padding: 10px 14px; box-shadow: 0 12px 30px #14213B12; font-size: 12px; font-weight: 700; }
+.illustration-chip small { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; color: #647080; }
+.illustration-chip-play { right: 0; top: 49px; transform: rotate(5deg); }
+.illustration-chip-idea { left: 0; bottom: 35px; transform: rotate(-5deg); }
+.illustration-star { position: absolute; color: #9A7324; font-size: 35px; }
+.illustration-star-one { left: 30px; top: 35px; }
+.illustration-star-two { right: 30px; bottom: 45px; font-size: 25px; }
+.hero-destinations .surface-card { background: #FFFEFADE; }
+.story-art > * { transition: transform 350ms ease; }
+.hero-cta svg { transition: transform 200ms ease; }
+@media (min-width: 900px) {
+  .hero-content-grid { grid-template-columns: 1.15fr 1fr; gap: 1.5rem; }
+}
+@media (max-width: 399px) {
+  .briefing-illustration { height: 355px; }
+  .illustration-sheet { width: 220px; left: calc(50% - 110px); height: 305px; top: 20px; }
+  .illustration-chip { padding: 8px; gap: 6px; }
+  .illustration-chip-play { top: 30px; }
+  .illustration-chip-idea { bottom: 10px; }
+}
+@media (hover: hover) {
+  .surface-card:hover .story-art > * { transform: scale(1.045); }
+  .hero-cta:hover svg { transform: translateX(4px); }
+  .hero-destinations .surface-card:hover { background: #FFF; }
+}
+@keyframes editorial-arrive {
+  from { opacity: 0; translate: 0 18px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes editorial-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -10px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .illustration-sheet { animation: editorial-arrive 700ms ease both; }
+  .illustration-chip-play { animation: editorial-arrive 650ms 150ms ease both, editorial-float 3s 800ms ease-in-out; }
+  .illustration-chip-idea { animation: editorial-arrive 650ms 300ms ease both, editorial-float 3s 950ms ease-in-out; }
+  .illustration-star { animation: editorial-float 3.5s ease-in-out; }
+  .hero-destinations > :nth-child(2) { animation: editorial-arrive 500ms 100ms ease both; }
+  .hero-destinations > :nth-child(3) { animation: editorial-arrive 500ms 200ms ease both; }
+}
+
+.topic-cover { position: relative; aspect-ratio: 15 / 8; overflow: hidden; color: #FFFDF6; isolation: isolate; }
+.topic-cover-art { position: absolute; width: 100%; height: 100%; inset: 0; transition: transform 350ms ease; }
+.topic-cover-copy { position: absolute; inset: 0; padding: 7%; display: flex; flex-direction: column; align-items: flex-start; }
+.topic-cover-label { max-width: 70%; color: var(--cover-accent); font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.topic-cover-name { max-width: 62%; margin-top: auto; margin-bottom: auto; font-family: Georgia, serif; font-size: clamp(1.15rem, 2.2vw, 1.65rem); font-weight: 700; line-height: 1.12; overflow-wrap: anywhere; }
+.topic-cover-footer { display: flex; justify-content: space-between; width: 100%; color: var(--cover-accent); font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.topic-cover-footer span { font-size: 17px; line-height: 12px; }
+.topic-cover-compact { aspect-ratio: auto; }
+.topic-cover-detail { max-height: 360px; }
+.topic-cover-detail .topic-cover-name { font-size: clamp(1.5rem, 4vw, 3rem); }
+.topic-cover-detail .topic-cover-copy { padding: 4% 6%; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .topic-visual-card:hover .topic-cover-art { transform: scale(1.04) rotate(1deg); }
+}
+
+.guide-hero { background: radial-gradient(ellipse at 95% 0%, #DCE8DD, transparent 65%), #F5F2E9; }
+.guide-hero-art { position: relative; padding: 12px 0 24px; }
+.guide-hero-art > svg { transform: rotate(3deg); border: 1px solid #C9DACD; box-shadow: 0 18px 35px #29473712; }
+.guide-hero-note { position: relative; display: flex; align-items: center; gap: 9px; width: fit-content; max-width: 95%; margin: -10px auto 0; padding: 14px 18px; border: 1px solid #D9E2D7; border-radius: 12px; background: #FFFEF9; color: #285B50; font-size: 12px; font-weight: 700; box-shadow: 0 8px 18px #29473710; }
+.guide-art-sheet, .guide-art-check { transition: translate 280ms ease; }
+.guide-category-link { transition: transform 200ms ease, border-color 200ms ease; }
+.guide-steps li { transition: border-color 200ms ease; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .guide-visual-card:hover .guide-art-sheet { translate: 0 -5px; }
+  .guide-visual-card:hover .guide-art-check { translate: 3px -3px; }
+  .guide-category-link:hover { transform: translateY(-2px); }
+  .guide-steps li:hover { border-color: #B08D3E80; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .guide-hero-art { animation: editorial-arrive 650ms ease both; }
+  .guide-hero-art .guide-art-check { animation: editorial-float 3s 650ms ease-in-out; }
+  .guide-hero-note { animation: editorial-arrive 700ms 150ms ease both; }
+}

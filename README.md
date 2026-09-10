@@ -138,3 +138,21 @@ see [Guide setup and operations](GUIDE_WORKFLOW.md).
 - [ ] Site passed AdSense review with real content
 - [ ] Checked actual Gemini free-tier quotas against 33 categories/day
 - [ ] Decided who does the daily editorial pass, and what happens if they miss a day
+
+### Build stability
+
+The local Node 24.14.1 environment has intermittently crashed with SIGSEGV
+and native V8 errors under both Turbopack and Webpack. Limiting static generation
+to two workers did not eliminate the crashes. Production builds now explicitly
+use the supported Webpack path while the runtime issue is investigated.
+
+A Node 22 runtime is pinned in `.nvmrc` as the next compatibility check:
+
+```bash
+nvm install
+nvm use
+npm run dev:worker
+```
+
+The Node 22 workaround has not yet been validated locally because its download
+could not complete. Do not treat switching bundlers alone as a confirmed fix.
