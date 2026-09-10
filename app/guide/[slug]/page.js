@@ -2,6 +2,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import GuideArtwork from '../../components/GuideArtwork';
+import ImageTool from '../../components/ImageTool';
 import {
   getPublishedIntents,
   getIntentBySlug,
@@ -58,6 +59,7 @@ export default async function GuideDetailPage({ params }) {
     notFound();
   }
 
+  const imageToolMode = slug === 'compress-image' ? 'compress' : slug === 'resize-photo' ? 'resize' : null;
   const category = getCategoryBySlug(intent.category);
   const relatedGuides = (await getPublishedIntents())
     .filter(guide => guide.slug !== slug && guide.category === intent.category)
@@ -142,10 +144,13 @@ export default async function GuideDetailPage({ params }) {
 
           <nav aria-label="In this guide" className="mb-8 flex max-w-3xl flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-line px-4 py-3 text-sm">
             <strong>In this guide</strong>
+            {imageToolMode && <a href="#image-tool" className="font-bold underline">Use image tool</a>}
             {intent.steps?.length > 0 && <a href="#instructions" className="underline">Instructions</a>}
             {liveRecs.length > 0 && <a href="#recommended-tools" className="underline">Recommended tools</a>}
             {intent.sources?.length > 0 && <a href="#sources" className="underline">Sources</a>}
           </nav>
+
+          {imageToolMode && <ImageTool mode={imageToolMode} />}
 
           <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="min-w-0">

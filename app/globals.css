@@ -169,3 +169,5 @@ article[id^="idea-"]:target { outline: 3px solid #B08D3E; outline-offset: 4px; }
   .guide-hero-art .guide-art-check { animation: editorial-float 3s 650ms ease-in-out; }
   .guide-hero-note { animation: editorial-arrive 700ms 150ms ease both; }
 }
+
+.image-tool-preview { background: repeating-conic-gradient(#F1F2EE 0% 25%, #FFFFFF 0% 50%) 50% / 16px 16px; border-radius: 8px; overflow: hidden; }
