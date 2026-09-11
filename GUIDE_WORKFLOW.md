@@ -161,7 +161,7 @@ still requires manual review. Scheduled AI review skips Manual drafts.
 
 Built-in tools are separate from content mode. The image editor currently runs
 on `compress-image` and `resize-photo`. The calculator is implemented at `/tools/calculator` and in the published
-`calculate-percentage` guide. Unit converter, color picker, and Christmas countdown remain planned. Currency rates, public IP lookup, and
+`calculate-percentage` guide. The unit converter is implemented at `/tools/unit-converter`. The color picker is implemented at `/tools/color-picker`. Christmas countdown is implemented at `/tools/christmas-countdown`. Currency rates, public IP lookup, and
 nearby search require separate data or service integrations.
 
 Next prepare five unpublished examples: a tool recommendation, explainer, recipe,

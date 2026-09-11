@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import ColorPicker from '../../components/ColorPicker';
+export const metadata = { title: 'Color picker — HEX, RGB, HSL and text contrast', description: 'Pick colors, convert HEX, RGB and HSL codes, and preview text contrast in your browser.', alternates: { canonical: '/tools/color-picker' } };
+export default function ColorPickerPage() {
+  return <div className="mx-auto max-w-5xl"><Link href="/guide" className="text-sm text-slate underline">← All guides</Link><h1 className="mb-6 mt-5 font-display text-4xl font-bold">Find your next color.</h1><ColorPicker /><section className="mt-8 max-w-3xl space-y-4 text-slate"><h2 className="font-display text-2xl font-bold text-ink">One color, three ways to use it</h2><p>HEX writes red, green, and blue as hexadecimal pairs. RGB uses values from 0 to 255. HSL describes hue in degrees, saturation, and lightness. This tool converts to 8-bit sRGB; HSL output is rounded to two decimal places.</p><p>Use the text and background controls to explore combinations. The preview may become hard to read when colors have low contrast; the controls and contrast results stay separate from your chosen colors.</p><p>Colors stay in browser memory. Reloading resets them; Copy writes the selected code to your clipboard. This tool does not upload or save your choices.</p></section></div>;
+}

@@ -218,4 +218,48 @@ Results use browser floating-point arithmetic and display up to 12 significant
 digits. No expression evaluation, API, subscription, or database migration is needed.
 
 Run `node --test tests/calculator.test.mjs` for calculation and validation checks.
-Unit converter, color picker, and Christmas countdown remain planned.
+The unit converter is implemented at `/tools/unit-converter`. The color picker is implemented at `/tools/color-picker`. Christmas countdown is implemented at `/tools/christmas-countdown`.
+
+## Browser unit converter
+
+`/tools/unit-converter` converts length, avoirdupois weight, temperature readings,
+volume, area, speed, fixed time durations, and digital storage using fixed factors. US liquid and Imperial gallons are explicitly separated; decimal and binary storage units are labelled. Results update
+as values change; Swap units reverses the units while preserving the input.
+Negative non-temperature values, temperatures below absolute zero, malformed
+inputs and overflow are rejected. No API, database change, or saved history.
+Run `node --test tests/unit-converter.test.mjs` to verify known conversions.
+
+## Browser color picker
+
+`/tools/color-picker` supports opaque 3/6-digit HEX, comma-separated integer RGB,
+and comma-separated HSL with percentage saturation/lightness. Native color
+selection, compact separate text/background controls, automatically applied valid
+codes, a preview above the controls (sticky on taller screens), per-format copying,
+and WCAG text contrast
+checks run in the browser. Conversion uses 8-bit sRGB; contrast pass/fail uses the
+unrounded ratio. Named colors, alpha, and wide-gamut formats are not supported.
+Run `node --test tests/colors.test.mjs` for conversion and contrast fixtures.
+
+## Christmas countdown
+
+`/tools/christmas-countdown` uses the visitor’s device clock to count down to
+local midnight on December 25, shows a greeting all Christmas Day, and selects
+next year starting December 26. Hydration begins with a clock-loading message.
+The interval recalculates from the current time; it does not subtract ticks.
+No location permission, API, or stored history. Countdown days are 24-hour periods.
+Run `node --test tests/christmas-countdown.test.mjs` for date-boundary tests.
+
+## How long until
+
+`/tools/countdown` expands the Christmas tool with international occasions and a
+custom name/date. It runs locally; custom input is not saved or uploaded. The
+original Christmas URL still works. Annual occasions repeat each year; custom
+dates never automatically repeat. Occasions are not necessarily public holidays
+in every country. No country-specific holiday calendar is included.
+Run `node --test tests/event-countdown.test.mjs` for countdown boundaries.
+
+The color picker also accepts local JPG/PNG/WebP photos for pixel sampling,
+HEX/RGB copying, and applying a sampled color to the text/background preview.
+Images are not uploaded or saved. Sampling uses a preview capped at 2,400 pixels
+on its longest side, with transparency composited on white. Arrow keys select
+pixels; Shift + arrow moves ten pixels. File limits: 25 MB / 40 megapixels.

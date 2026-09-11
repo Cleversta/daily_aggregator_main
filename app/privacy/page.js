@@ -45,8 +45,12 @@ export default function PrivacyPage() {
           <p>Following a recommendation opens a separate service. Any files or information you provide there are handled under that service’s own privacy policy. Our browser-only image processing statement does not apply to external tools, email subscriptions, or ordinary requests used to load this website.</p>
         </section>
         <section>
-          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Calculator inputs</h2>
-          <p>The built-in calculator processes your numbers in the browser without sending them to a server or AI service. It does not save a calculation history. Inputs and results are cleared when the page reloads. Choosing Copy result writes the displayed answer to your device’s clipboard.</p>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Calculator, converter, and color-picker inputs</h2>
+          <p>The built-in calculator, unit converter, and color picker process your inputs in the browser without sending them to a server or AI service. These tools do not save calculation history or color choices. Inputs and results are cleared when the page reloads. Choosing a Copy button writes the displayed answer or color code to your device’s clipboard.</p>
+        </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Christmas countdown</h2>
+          <p>The countdown reads your device’s clock and browser time zone to display time remaining until December 25. It does not request location permission, transmit this time-zone value to our server, or store countdown history.</p>
         </section>
       </div>
       <nav aria-label="Related information" className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-ink/10 pt-6 text-sm font-semibold text-ink">

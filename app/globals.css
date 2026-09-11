@@ -171,3 +171,12 @@ article[id^="idea-"]:target { outline: 3px solid #B08D3E; outline-offset: 4px; }
 }
 
 .image-tool-preview { background: repeating-conic-gradient(#F1F2EE 0% 25%, #FFFFFF 0% 50%) 50% / 16px 16px; border-radius: 8px; overflow: hidden; }
+
+/* Keep the sample visible while editing either color, except on short screens. */
+@media (min-height: 600px) {
+  .color-live-preview { position: sticky; top: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .christmas-star { animation: editorial-float 3s ease-in-out; }
+}
