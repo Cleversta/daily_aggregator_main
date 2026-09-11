@@ -8,6 +8,7 @@ import { useLastVisit, isNewSince } from './Freshness';
 import Icon from './Icon';
 
 const destinations = [
+  { href: 'browse', label: 'Browse topics', icon: 'grid', isBrowse: true },
   { href: '/', label: 'News', icon: 'news' },
   { href: '/creator-ideas', label: 'Creator Ideas', icon: 'sparkles' },
   { href: '/guide', label: 'Guides', icon: 'book' },
@@ -36,14 +37,22 @@ export default function Navbar({ categoryFreshness = {}, topicFreshness = [] }) 
   return (
     <nav ref={root} className="relative z-30 border-b border-line bg-paper" aria-label="Primary navigation" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 py-2 sm:px-6">
-        <div className="grid w-full grid-cols-5 gap-1 sm:flex sm:w-auto">
+        <div className="grid w-full grid-cols-6 gap-1 sm:flex sm:w-auto">
           {destinations.map(item => {
+            if (item.isBrowse) {
+              return (
+                <button key="browse" ref={trigger} type="button" aria-expanded={open} aria-controls="browse-topics" onClick={() => setOpen(!open)} aria-current={open || topicsActive ? 'page' : undefined} className={`nav-destination ${open || topicsActive ? 'bg-ink text-white shadow-sm' : 'text-slate hover:bg-white hover:text-ink'}`}>
+                  <Icon name={item.icon} className="h-4 w-4" />
+                  <span className="flex items-center gap-2">{item.label}{hasNew && <span className="h-2 w-2 rounded-full bg-alert" aria-label="New topic updates" />}</span>
+                  <Icon name="chevron" className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+                </button>
+              );
+            }
             const active = item.href === '/' ? pathname === '/' : item.href === '/topics' ? pathname === '/topics' || pathname.startsWith('/topic/') : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} className={`nav-destination ${active ? 'bg-ink text-white shadow-sm' : 'text-slate hover:bg-white hover:text-ink'}`}><Icon name={item.icon} /><span>{item.label}</span></Link>;
           })}
         </div>
         <Link href="/saved" aria-current={pathname === "/saved" ? "page" : undefined} className="action-link ml-auto px-2"><Icon name="bookmark" className="h-4 w-4" />Saved</Link>
-        <button ref={trigger} type="button" aria-expanded={open} aria-controls="browse-topics" onClick={() => setOpen(!open)} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-bold ${open || topicsActive ? 'bg-white text-ink' : 'text-slate hover:bg-white'}`}><Icon name="grid" className="h-4 w-4" />Browse topics{hasNew && <span className="h-2 w-2 rounded-full bg-alert" aria-label="New topic updates" />}<Icon name="chevron" className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} /></button>
       </div>
       {open && <div id="browse-topics" className="absolute left-0 right-0 max-h-[70vh] overflow-y-auto border-y border-line bg-paper p-5 shadow-xl motion-enter">
         <div className="mx-auto max-w-6xl">
