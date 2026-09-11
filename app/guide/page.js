@@ -36,6 +36,7 @@ export default async function GuideIndexPage() {
         {activeCategories.length > 0 && <nav aria-label="Guide categories" className="mt-6 flex flex-wrap gap-2">{activeCategories.map(category => <a key={category.slug} href={`#${category.slug}`} className="guide-category-link inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-3 text-sm font-bold hover:border-wire"><span aria-hidden="true">{category.icon}</span> {category.title}</a>)}</nav>}
       </section>
 
+      <Link href="/tools/calculator" className="surface-card flex items-center justify-between gap-4 p-6"><div><p className="text-xs font-bold uppercase tracking-widest text-wire">Use it here · No signup</p><h2 className="mt-2 font-display text-2xl font-bold">Everyday calculator</h2><p className="mt-2 text-sm text-slate">Arithmetic, percentages, and percentage change, right in your browser.</p></div><span aria-hidden="true" className="hidden shrink-0 text-3xl sm:block">＋ − × ÷</span></Link>
       {intents.length === 0 ? (
         <p className="text-slate">
           Our first guides are being prepared. Check back soon.

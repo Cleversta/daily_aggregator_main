@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { normalizeGuide, starters } from '../lib/guide-workflow.mjs';
+import { normalizeGuide, starters, guideMode } from '../lib/guide-workflow.mjs';
 import { verifyCloudflareAccess } from '../lib/cloudflare-access.mjs';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -46,6 +46,8 @@ export async function onRequestPost({ request, env, accessVerifier = verifyCloud
         return json({ draft, message: 'Draft saved. Published content is unchanged.' });
       }
       case 'research': {
+        const draft = unwrap(await db.from('guide_drafts').select('content').eq('slug', payload.slug).single());
+        if (guideMode(draft.content.content_mode) === 'manual') return json({ error: 'Switch content mode before requesting AI research.' }, 400);
         const id = unwrap(await db.rpc('guide_queue', { p_slug: payload.slug, p_version: payload.version }));
         return json({ id, message: 'Research queued. The scheduled worker will process it; refresh to see progress.' });
       }

@@ -6,7 +6,7 @@ and has grown into a static Next.js site with an email digest, an evergreen
 "Topics" reference section, and AI-prompt "Creator studio" cards for each
 brief, hosted on Cloudflare Pages.
 
-## What's live right now
+## Features implemented in this repository
 
 
 - **3 active categories** out of a planned 33: `ai`, `crypto`, `football`
@@ -22,8 +22,11 @@ brief, hosted on Cloudflare Pages.
 - **Creator studio** — ready-to-use AI prompts (YouTube Shorts, TikTok,
   Instagram Reel scripts) generated per brief, with copy/save-to-browser
   functionality.
-- **Email digest** — no-login mailing list (Supabase `subscribers` table +
-  Resend) with confirm/unsubscribe via token links, sent once a day.
+- **Email digest** — no-login mailing list using Supabase and Resend. The send
+  script exists; automated delivery and the unsubscribe route still need verification.
+- **Guide image editor** — browser-only resize, compression, crop presets,
+  crop positioning, 90° rotation, JPG/PNG/WebP export, automatic preview and
+  actual output size on `/guide/compress-image` and `/guide/resize-photo`.
 - Static pages: `/about`, `/editorial-policy`, `/privacy`, `/contact`, plus
   `/feed.xml`, `/robots.txt`, and a generated sitemap.
 
@@ -41,10 +44,10 @@ see [Guide setup and operations](GUIDE_WORKFLOW.md).
 - **Hosting**: **Cloudflare Pages** (migrated from Netlify — see
   `CLOUDFLARE_MIGRATION.md` for the history). `wrangler.jsonc` points at the
   `out/` build directory.
-- **Serverless functions**: `functions/` (Cloudflare Pages Functions) handle
-  `subscribe` / `confirm` / `unsubscribe`. The old `netlify/functions/`
-  equivalents are still in the repo but unused — safe to delete once you've
-  confirmed Cloudflare is fully cut over.
+- **Serverless functions**: `worker.js` routes subscribe, confirm, and Guide
+  admin requests for the Worker deployment. `functions/` contains Pages handlers;
+  the two deployment modes are not interchangeable. Unsubscribe is currently
+  missing from the Worker router and must be verified before digest launch.
 - **Data**: Supabase (Postgres), row-level security on, all writes go through
   the service-role key server-side — never the browser anon key.
 - **Content pipelines** (all in `scripts/`, run as scheduled jobs):
@@ -63,14 +66,15 @@ see [Guide setup and operations](GUIDE_WORKFLOW.md).
   then hits a Cloudflare Pages deploy hook to rebuild the site.
 - `.github/workflows/youtube-fetch.yml` — runs `fetch-youtube.js` daily at
   5:30 AM UTC.
-- **Not yet automated**: `fetch-topics.js` and `send-digest.js` have no
-  workflow file — they currently need to be run manually (or you can add
-  steps/schedules for them; see `readme_topic.md` for a suggested workflow
-  snippet for topics).
+- `.github/workflows/topics-fetch.yml` — refreshes the current topic rotation
+  daily at 06:00 UTC and requests a rebuild.
+- Guide research and link-review workflows handle queued drafts and link checks.
+- `send-digest.js` has no dedicated scheduled workflow; delivery needs separate setup.
 
 ## Setup
 
-**Requires Node.js 20+** (Next.js 16 minimum). Check with `node -v`.
+**Use the Node version in `.nvmrc`**: run `nvm install`, then `nvm use`.
+Check with `node -v` before building.
 
 1. **Supabase**: create a project, then run `supabase/schema.sql` and
    `supabase/subscribers.sql` in the SQL editor. If you want Topics too,
@@ -103,7 +107,9 @@ see [Guide setup and operations](GUIDE_WORKFLOW.md).
 5. **Run the site locally**: `npm run dev` for live Next.js UI updates.
 
    To test the Cloudflare Worker and its endpoints, use `npm run dev:worker`.
-   This builds the site and serves a snapshot at `http://localhost:8787`.
+   This selects the installed Node version from `.nvmrc`, prints its path,
+   builds the site, and serves a snapshot at `http://localhost:8787`. If that
+   runtime is missing, run `nvm install` first. Cloudflare builds are unchanged.
    Stop the existing preview before starting another one. To reuse an already
    completed build, run `npm run preview:worker`. The preview uses
    `.wrangler/local-assets` so rebuilding `out` does not interrupt it.
@@ -118,16 +124,17 @@ see [Guide setup and operations](GUIDE_WORKFLOW.md).
 
 ## Known limitations
 
-- No editorial-review admin dashboard — review rows directly in the
-  Supabase table editor before a rebuild if you want to hand-edit anything.
+- `/admin/guide` provides Guide draft review. This does not provide an equivalent
+  editorial dashboard for every automated news or topic pipeline.
 - No image optimization (static export doesn't support Next's image API) —
   images and video thumbnails render as plain `<img>` elements.
 - `fetch-news.js` makes a single Gemini call per category with no retry —
   a transient failure marks that category stale for the day. (`fetch-topics.js`
   is more robust here: longer timeouts, retries with backoff, and strict
   JSON response mode — see `readme_topic.md`.)
-- Topics and digest sends aren't on a GitHub Actions schedule yet — manual
-  `npm run` for now.
+- Digest delivery still needs scheduling. The Worker currently routes subscribe
+  and confirm requests but has no unsubscribe handler; fix and verify it before
+  relying on email subscriptions.
 - Old `netlify/functions/` and Netlify-specific config are still in the repo
   but dead weight post-migration — safe to delete once Cloudflare is
   confirmed stable.
@@ -146,7 +153,7 @@ and native V8 errors under both Turbopack and Webpack. Limiting static generatio
 to two workers did not eliminate the crashes. Production builds now explicitly
 use the supported Webpack path while the runtime issue is investigated.
 
-A Node 22 runtime is pinned in `.nvmrc` as the next compatibility check:
+A Node 22 runtime is pinned in `.nvmrc` for local development:
 
 ```bash
 nvm install
@@ -154,5 +161,61 @@ nvm use
 npm run dev:worker
 ```
 
-The Node 22 workaround has not yet been validated locally because its download
-could not complete. Do not treat switching bundlers alone as a confirmed fix.
+Node 22 has produced successful builds and the image tool has been tested by
+the site owner. Later builds also reproduced SIGSEGV under Node 22, so neither
+the runtime pin nor Webpack is a confirmed fix for the intermittent native crash.
+Check each build result before starting a preview or deploying.
+
+## Guide content modes and roadmap
+
+The admin editor supports three content modes after applying
+`supabase/guide_content_modes.sql` (after `guide_workflow.sql`):
+
+1. **Manual + Recommend:** an editor-written answer with optional recommendations.
+2. **AI Info + Recommend:** a source-backed AI draft, reviewed before publication.
+3. **Only Recommend:** useful links with short reasons and relevant limitations;
+   a long article is optional, but unexplained link lists are not the target.
+
+A built-in tool is optional and separate from the content mode. The browser-tool roadmap includes a calculator, unit converter (excluding live currency rates),
+HEX/RGB/HSL color picker, and Christmas countdown using the visitor’s clock.
+These tools use deterministic code, not AI, for their calculations. The image editor and calculator are implemented; the other tools remain planned.
+
+The Save draft → Review → Publish flow is preserved. Content mode is implemented;
+optional-tool and refresh controls remain planned. Manual mode disables AI research;
+Only Recommend hides instructions and requires evidence-backed recommendations. Start with five draft examples: a tool recommendation,
+an explainer, a recipe guide, a holiday page, and a current-information page.
+See [Guide workflow and content modes](GUIDE_WORKFLOW.md).
+
+Time-sensitive topics will initially recommend current external sources. AI
+may summarize retrieved information, but does not supply real-time prices,
+release dates, public IP addresses, or nearby results by itself. API integrations,
+location handling, and currency conversion are separate future work. The mode migration and editor are implemented locally; no production migration,
+research job or deployment is run automatically by this change.
+
+## Image tool behavior
+
+Files are processed in the browser, without upload or AI calls. JPG, PNG, and
+WebP inputs are limited to 25 MB and 40 megapixels; output is limited to 16
+megapixels and 8,192 pixels per side. Crop coordinates refer to the original;
+rotation follows cropping. Quality changes trigger a debounced preview encode,
+and the displayed size is the actual generated file size, not a predicted saving.
+PNG ignores the quality control and can make photographs larger. JPG flattens
+transparency onto white. Animated inputs become still images; exports can change
+metadata and colors. No guarantee of a smaller file or metadata sanitization is made.
+
+Run `node --test tests/image-geometry.test.mjs` to check crop bounds and rotation
+proportions. Also test preview, format export, download, and replacing/clearing a
+file in a browser. Changes need a successful rebuild and preview restart before
+they appear in `npm run dev:worker`.
+
+## Browser calculator
+
+Implemented at `/tools/calculator`, linked from Guides and site search, and
+embedded in the published `calculate-percentage` guide. Supports addition,
+subtraction, multiplication, division, percentage of a number, part/whole
+percentage, and percentage change. Inputs stay in memory; copying is optional.
+Results use browser floating-point arithmetic and display up to 12 significant
+digits. No expression evaluation, API, subscription, or database migration is needed.
+
+Run `node --test tests/calculator.test.mjs` for calculation and validation checks.
+Unit converter, color picker, and Christmas countdown remain planned.

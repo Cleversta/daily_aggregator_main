@@ -32,6 +32,14 @@ export default function AboutPage() {
           <h2 className="mb-3 font-display text-2xl font-bold text-ink">Check the date</h2>
           <p>News briefings and video charts are snapshots, not live feeds. Check the displayed update time, especially when a story is developing. Older material may remain available between successful updates.</p>
         </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Tools you can use here</h2>
+          <p>The image tools in our compress and resize guides let you crop, rotate, resize, and export JPG, PNG, or WebP images. Processing happens in your browser, and you can preview the result and its file size before downloading. Your selected image is not uploaded by the tool.</p>
+        </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Help choosing another service</h2>
+          <p>Some guides recommend external websites or tools. Read the reasons, limitations, and verification details where provided, then check the destination’s current terms before using it. Recommendations are a starting point, not a complete list of every option.</p>
+        </section>
       </div>
       <nav aria-label="Related information" className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-ink/10 pt-6 text-sm font-semibold text-ink">
         <Link href="/editorial-policy" className="underline underline-offset-4 hover:text-wire">Editorial policy</Link>

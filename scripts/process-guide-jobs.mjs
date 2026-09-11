@@ -9,7 +9,7 @@ const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:
 // Never replace a draft awaiting human review or start all 15 at once.
 if (env.GUIDE_AUTO_REVIEW === 'true') {
   const { data: due, error } = await db.from('guide_drafts').select('slug,version')
-    .eq('status', 'published').lt('updated_at', new Date(Date.now()-14*86400000).toISOString())
+    .eq('status', 'published').or('content->>content_mode.is.null,content->>content_mode.neq.manual').lt('updated_at', new Date(Date.now()-14*86400000).toISOString())
     .order('updated_at').limit(1);
   if (error) throw new Error(error.message);
   if (due?.length) {

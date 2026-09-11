@@ -8,6 +8,7 @@ import path from 'node:path';
 import { starters } from '../lib/guide-workflow.mjs';
 const publication = '11111111-1111-4111-8111-111111111111';
 const intents = starters.map((s, i) => ({ ...s, id: `fixture-${i}`, status: 'published',
+  content_mode: ['manual', 'ai', 'recommendations'][i % 3],
   description: 'Synthetic guide used only for build validation.', updated_at: '2026-01-01T00:00:00Z',
   steps: ['Choose a sample file.', 'Review the result.'], sources: [{ title: 'Fixture evidence', url: 'https://example.com/docs' }],
   verification: 'documentation', verified_on: '2026-01-01', publication_id: publication,
@@ -50,7 +51,8 @@ try {
     const html = await readFile(new URL(`../out/guide/${guide.slug}.html`, import.meta.url), 'utf8');
     assert.ok(html.includes(`data-guide-publication="${publication}"`));
     assert.ok(html.includes('Fixture evidence'));
-    assert.ok(html.includes('How to do it'));
+    assert.equal(html.includes('Answer and steps'), intents.find(i => i.slug === guide.slug).content_mode !== 'recommendations');
+    if (intents.find(i => i.slug === guide.slug).content_mode === 'recommendations') assert.ok(html.includes('Recommended resources'));
     assert.ok(sitemap.includes(`/guide/${guide.slug}`));
   }
   const index = JSON.parse(await readFile(indexPath, 'utf8'));

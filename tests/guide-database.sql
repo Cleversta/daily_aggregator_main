@@ -63,5 +63,24 @@ do $$ begin
  begin perform guide_publish('integration-guide',5); raise exception 'Anonymous publication succeeded'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
+do $$ declare c jsonb; v integer; begin
+ select content into c from guide_drafts where slug='integration-guide';
+ c := c || '{"content_mode":"recommendations","steps":[]}'::jsonb;
+ select version into v from guide_drafts where slug='integration-guide';
+ perform guide_save('integration-guide',c,v);
+ perform guide_publish('integration-guide',v+1);
+ if (select content_mode from guide_intents where slug='integration-guide') <> 'recommendations' then raise exception 'Mode not published'; end if;
+ c := c || '{"content_mode":"manual","steps":["Read this answer"],"recommendations":[]}'::jsonb;
+ perform guide_save('integration-guide',c,v+1);
+ begin
+  perform guide_queue('integration-guide',v+2);
+  raise exception 'Manual research was accepted';
+ exception when raise_exception then
+  if sqlerrm <> 'Manual guides do not use AI research.' then raise; end if;
+ end;
+ perform guide_publish('integration-guide',v+2);
+ if (select content_mode from guide_intents where slug='integration-guide') <> 'manual' then raise exception 'Manual mode not published'; end if;
+ if exists(select 1 from guide_recommendations where intent_id=(select id from guide_intents where slug='integration-guide')) then raise exception 'Old recommendations survived'; end if;
+end $$;
 rollback;
 \echo 'PASS: private drafts, publication, rollback, stale edits, queue, quotas and RLS'

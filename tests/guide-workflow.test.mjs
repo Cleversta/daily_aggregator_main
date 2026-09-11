@@ -81,3 +81,31 @@ test('permanent provider errors stop; third transient failure stops', async () =
     await processOne(db,env,async()=>new Response('',{status})); assert.ok(db.calls.some(c=>c.values?.status==='failed'));
   }
 });
+
+test('legacy drafts keep the AI-capable workflow and invalid modes are rejected', () => {
+  assert.equal(normalizeGuide(base).content_mode, 'ai');
+  assert.throws(() => normalizeGuide({ ...base, content_mode: 'invented' }), /content mode/);
+});
+test('Only Recommend publishes without steps but keeps evidence and review requirements', () => {
+  const guide = { ...base, content_mode: 'recommendations', steps: [] };
+  assert.equal(normalizeGuide(guide, true).content_mode, 'recommendations');
+  for (const change of [{ recommendations: [] }, { sources: [] }, { verification: 'unverified' }, { verified_on: '' }]) {
+    assert.throws(() => normalizeGuide({ ...guide, ...change }, true));
+  }
+});
+test('answer modes require content but can omit recommendations', () => {
+  for (const content_mode of ['manual', 'ai']) {
+    assert.deepEqual(normalizeGuide({ ...base, content_mode, recommendations: [] }, true).recommendations, []);
+    assert.throws(() => normalizeGuide({ ...base, content_mode, steps: [] }, true));
+  }
+});
+test('AI cannot change the selected mode or write manual drafts', async () => {
+  const guide = validateAIDraft({ ...base, content_mode: 'manual' }, { ...base, content_mode: 'recommendations' }, [source]);
+  assert.equal(guide.content_mode, 'recommendations');
+  assert.deepEqual(guide.steps, []);
+  assert.equal(guide.verification, 'unverified');
+  assert.throws(() => validateAIDraft(base, { ...base, content_mode: 'manual' }, [source]));
+  let requests = 0;
+  await assert.rejects(researchGuide(mockDB(), { ...job, input: { ...base, content_mode: 'manual' } }, env, () => { requests++; }), /Manual/);
+  assert.equal(requests, 0);
+});

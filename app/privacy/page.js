@@ -36,6 +36,18 @@ export default function PrivacyPage() {
           <h2 className="mb-3 font-display text-2xl font-bold text-ink">Changes to this page</h2>
           <p>This page describes the site’s current features. It should be updated when those features or the services used to provide them change.</p>
         </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Images processed in your browser</h2>
+          <p>Our built-in image editor reads only the file you select and processes it on your device. The editor does not upload your image to our server, send it to an AI service, or save it in browser local storage. Temporary previews are held while you use the tool; clearing the image or leaving the page releases the editor’s references to them. A file you download remains on your device until you remove it.</p>
+        </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Recommended external tools</h2>
+          <p>Following a recommendation opens a separate service. Any files or information you provide there are handled under that service’s own privacy policy. Our browser-only image processing statement does not apply to external tools, email subscriptions, or ordinary requests used to load this website.</p>
+        </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Calculator inputs</h2>
+          <p>The built-in calculator processes your numbers in the browser without sending them to a server or AI service. It does not save a calculation history. Inputs and results are cleared when the page reloads. Choosing Copy result writes the displayed answer to your device’s clipboard.</p>
+        </section>
       </div>
       <nav aria-label="Related information" className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-ink/10 pt-6 text-sm font-semibold text-ink">
         <Link href="/about" className="underline underline-offset-4 hover:text-wire">About</Link>

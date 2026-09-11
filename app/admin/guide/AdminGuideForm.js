@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { categories, normalizeGuide } from '../../../lib/guide-workflow.mjs';
+import { categories, normalizeGuide, contentModes, guideMode } from '../../../lib/guide-workflow.mjs';
 
-const empty = () => ({ slug: '', name: '', category: 'images', description: '', phrases: [], steps: [], sources: [], recommendations: [], verification: 'unverified', verified_on: '' });
+const empty = () => ({ slug: '', name: '', category: 'images', content_mode: 'manual', description: '', phrases: [], steps: [], sources: [], recommendations: [], verification: 'unverified', verified_on: '' });
 const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-ink';
 const button = 'rounded-lg border border-line px-4 py-2 text-sm font-bold disabled:opacity-50';
 function Field({ label, value, onChange, multiline = false, ...props }) {
@@ -48,7 +48,7 @@ export default function AdminGuideForm() {
     finally { setBusy(false); }
   }
   function load(draft) {
-    setContent(draft.content); setVersion(draft.version); setEditorStatus(draft.status);
+    setContent({ ...draft.content, content_mode: guideMode(draft.content.content_mode) }); setVersion(draft.version); setEditorStatus(draft.status);
     setPublication(draft.publication_id); setDirty(false); setReviewed(false);
     setMessage(`Loaded ${draft.content.name}. ${draft.status === 'review' ? 'AI draft: verify sources and instructions before publishing.' : 'Ready to edit.'}`);
     window.setTimeout(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
@@ -113,9 +113,11 @@ export default function AdminGuideForm() {
         <Field label="URL slug (fixed after first save)" value={content.slug} disabled={version > 0} onChange={v => change('slug', v)} placeholder="make-photo-smaller" />
       </div>
       <label className="block text-sm font-bold">Category<select className={field} value={content.category} onChange={e => change('category', e.target.value)}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>
-      <Field label="Short answer / description" multiline value={content.description} onChange={v => change('description', v)} />
+      <label className="block text-sm font-bold">Content mode<select className={field} value={guideMode(content.content_mode)} onChange={e => change('content_mode', e.target.value)}>{contentModes.map(mode => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label>
+      <p className="text-sm text-slate">{contentModes.find(mode => mode.value === guideMode(content.content_mode)).help} Every mode requires source review before publishing.</p>
+      <Field label={content.content_mode === 'recommendations' ? 'Short introduction' : 'Short answer / description'} multiline value={content.description} onChange={v => change('description', v)} />
       <Field label="Search phrases — one per line" multiline value={content.phrases.join('\n')} onChange={v => change('phrases', lines(v))} />
-      <Field label="Instructions — one step per line" multiline value={content.steps.join('\n')} onChange={v => change('steps', lines(v))} />
+      {content.content_mode !== 'recommendations' ? <Field label="Answer sections or instructions — one per line" multiline value={content.steps.join('\n')} onChange={v => change('steps', lines(v))} /> : <p className="text-sm text-slate">Instructions are hidden in this mode. Existing instructions are kept in the draft if you switch back.</p>}
       <section className="space-y-3"><h3 className="font-bold">Evidence sources</h3>
         <p className="text-sm text-slate">Open the sources and verify claims. Search excerpts and AI drafts are not proof of personal testing.</p>
         {content.sources.map((s, i) => <div key={i} className="grid sm:grid-cols-2 gap-2">
@@ -126,7 +128,7 @@ export default function AdminGuideForm() {
         </div>)}
         <button className={button} disabled={content.sources.length >= 12} onClick={() => change('sources', [...content.sources, { title: '', url: '' }])}>Add source</button>
       </section>
-      <section className="space-y-5"><h3 className="font-bold">Recommendations</h3>
+      <section className="space-y-5"><h3 className="font-bold">Recommendations {content.content_mode !== 'recommendations' && '(optional)'}</h3>
         {content.recommendations.map((rec, i) => <div key={i} className="border border-line rounded-lg p-4 space-y-3">
           <p className="font-bold">Recommendation {i + 1}</p>
           {['name', 'url', 'description', 'reason', 'limitations', 'signup', 'privacy'].map(key => <Field key={key} label={key === 'signup' ? 'Signup requirements' : key.charAt(0).toUpperCase() + key.slice(1)} value={rec[key]} multiline={!['name','url','signup'].includes(key)} onChange={v => change('recommendations', content.recommendations.map((r, n) => n === i ? { ...r, [key]: v } : r))} />)}
@@ -137,13 +139,13 @@ export default function AdminGuideForm() {
       </section>
       <div className="grid sm:grid-cols-2 gap-4">
         <label className="text-sm font-bold">Verification<select className={field} value={content.verification} onChange={e => change('verification', e.target.value)}>
-          <option value="unverified">Not yet verified</option><option value="documentation">I checked official documentation</option><option value="tested">I personally tested the instructions</option>
+          <option value="unverified">Not yet verified</option><option value="documentation">I checked official documentation</option><option value="tested">I personally tested the instructions or recommended tools</option>
         </select></label>
         <Field label="Date you verified it" type="date" value={content.verified_on} onChange={v => change('verified_on', v)} />
       </div>
       <div className="flex flex-wrap gap-3">
         <button className={button} onClick={() => run(async () => { await save(); await refresh(); setMessage('Draft saved.'); })}>Save draft</button>
-        <button className={button} disabled={!!activeJob} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>{activeJob ? 'AI research already queued' : 'Research with AI'}</button>
+        <button className={button} disabled={!!activeJob || content.content_mode === 'manual'} onClick={() => run(async () => { const v = await save(); const data = await api('research', { slug: content.slug, version: v }); setMessage(data.message); await refresh(); })}>{content.content_mode === 'manual' ? 'AI research disabled in Manual mode' : activeJob ? 'AI research already queued' : 'Research with AI'}</button>
       </div>
       {activeJob && <p className="text-sm">Research {activeJob.status}: {activeJob.message || 'Awaiting the next worker run.'} {activeJob.status === 'waiting' && `Next attempt after ${new Date(activeJob.available_at).toLocaleString()}.`}</p>}
       <div className="sticky bottom-3 z-20 space-y-3 rounded-xl border border-line bg-paper/95 p-4 shadow-lg backdrop-blur">

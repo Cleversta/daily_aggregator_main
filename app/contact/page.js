@@ -42,6 +42,10 @@ export default function ContactPage() {
           <h2 className="mb-3 font-display text-2xl font-bold text-ink">Site feedback</h2>
           <p>For a broken link or display problem, include the affected URL, what you expected to happen, and your browser or device. Suggestions for topics and improvements are welcome too.</p>
         </section>
+        <section>
+          <h2 className="mb-3 font-display text-2xl font-bold text-ink">Report an image-tool problem</h2>
+          <p>Include the guide URL, browser and device, original file format and dimensions, and the settings you selected. Describe the result you expected and what happened. You do not need to send your personal photo; a non-sensitive example is preferable if a sample is needed.</p>
+        </section>
       </div>
       <nav aria-label="Related information" className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-ink/10 pt-6 text-sm font-semibold text-ink">
         <Link href="/about" className="underline underline-offset-4 hover:text-wire">About</Link>

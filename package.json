@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:worker": "npm run build && npm run preview:worker",
+    "dev:worker": "node scripts/dev-worker.mjs",
     "build": "node scripts/generate-guide-index.js && rm -rf .next out && next build --webpack",
     "start": "next start",
     "fetch-news": "node scripts/fetch-news.js",

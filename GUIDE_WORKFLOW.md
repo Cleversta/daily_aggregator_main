@@ -124,3 +124,47 @@ older versions remain respected by the public page.
 No live data, production migration, AI-provider call, or deployment is performed
 by the unit tests. All 15 starters are research candidates, not independently
 verified top-volume search keywords.
+
+## Content modes
+
+The admin editor now supports:
+
+- **Manual + Recommend:** editor-written answer sections or instructions;
+  recommendations are optional. AI research is disabled.
+- **AI Info + Recommend:** source-backed AI drafting with editor review;
+  recommendations are optional.
+- **Only Recommend:** a short introduction and at least one recommendation with
+  reasons and supporting evidence. Instructions are hidden on the public page.
+
+New blank guides start in Manual mode. Existing drafts without a mode retain
+AI-capable behavior, as do starter drafts; this default is not an authorship claim.
+Switching modes preserves draft instructions, so switching back restores them.
+All modes require description, evidence sources, verification method/date, and
+explicit review before publication. AI cannot choose the mode or mark content
+verified. The existing version guards still prevent stale saves and AI overwrites.
+
+### Required migration before deployment
+
+Run `supabase/guide_content_modes.sql` after `guide_workflow.sql` in Supabase SQL
+Editor. It adds the published mode and replaces the publication and queue RPCs.
+It is repeatable and does not overwrite draft text. Apply it before deploying the
+updated admin, Worker and research runner. This repository change does not run
+the migration against production. Do not rerun the older workflow SQL afterward,
+because it would replace the updated RPC definitions; reapply the mode migration
+last if rebuilding the schema.
+
+Save a draft, review it and its sources, then publish and verify the deployed
+publication marker as before. Only Recommend may use AI to research links, but
+still requires manual review. Scheduled AI review skips Manual drafts.
+
+### Remaining roadmap
+
+Built-in tools are separate from content mode. The image editor currently runs
+on `compress-image` and `resize-photo`. The calculator is implemented at `/tools/calculator` and in the published
+`calculate-percentage` guide. Unit converter, color picker, and Christmas countdown remain planned. Currency rates, public IP lookup, and
+nearby search require separate data or service integrations.
+
+Next prepare five unpublished examples: a tool recommendation, explainer, recipe,
+holiday, and current-information guide. For changing facts, record source and
+retrieval time; for dates, specify country/year where relevant. AI is not a live
+feed. Additional refresh controls and browser-tool selectors are not implemented.
