@@ -263,3 +263,12 @@ HEX/RGB copying, and applying a sampled color to the text/background preview.
 Images are not uploaded or saved. Sampling uses a preview capped at 2,400 pixels
 on its longest side, with transparency composited on white. Arrow keys select
 pixels; Shift + arrow moves ten pixels. File limits: 25 MB / 40 megapixels.
+
+## Date calculator
+
+`/tools/date-calculator` supports signed date differences (displayed as an absolute
+duration with direction), optional inclusive counting, adding/subtracting whole
+calendar days, and age in completed years/months/days. Uses UTC date-only arithmetic
+to avoid DST differences, supports years 1000–9999, and clamps month anniversaries
+to the last valid day. All processing is local; inputs are not persisted.
+Run `node --test tests/date-calculator.test.mjs`.

@@ -1,0 +1,4 @@
+import Link from 'next/link';
+import DateCalculator from '../../components/DateCalculator';
+export const metadata={title:'Date calculator — days between dates and age',description:'Find days between dates, add or subtract days, and calculate age in years, months and days. Free browser-only date calculator.',alternates:{canonical:'/tools/date-calculator'}};
+export default function DateCalculatorPage(){return <div className="mx-auto max-w-5xl"><Link href="/guide" className="text-sm text-slate underline">← All guides</Link><h1 className="mt-5 font-display text-4xl font-bold">Date calculator</h1><p className="mb-6 mt-3 text-slate">Plan ahead, count the days, or find an age. Results update as you type.</p><DateCalculator /><Link href="/tools/countdown" className="mt-6 inline-block font-bold underline">Want a live countdown? Try How long until… →</Link></div>;}
