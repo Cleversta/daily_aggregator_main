@@ -19,6 +19,7 @@
 // and a stale-but-live fallback instead of blanking a page on failure.
 
 require('dotenv').config({ path: '.env.local' });
+const { sourceTrust } = require('../lib/source-trust.cjs');
 const { getSupabaseAdmin } = require('../lib/supabase-admin');
 const { getAllTopics, getTopicsForRotationGroup, getTodaysRotationGroup } = require('../lib/topics');
 
@@ -106,7 +107,7 @@ async function runTavilySearch(topicName, timeRange) {
 
   const data = await response.json();
   return (data.results || [])
-    .filter((item) => item.title && item.url && item.content)
+    .filter((item) => item.title && item.url && item.content && sourceTrust(item.url).trusted)
     .map((item) => ({ title: item.title, url: item.url, content: item.content }));
 }
 

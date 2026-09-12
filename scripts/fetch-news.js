@@ -10,6 +10,7 @@
 
 require('dotenv').config({ path: '.env.local' });
 const { getSupabaseAdmin } = require('../lib/supabase-admin');
+const { sourceTrust } = require('../lib/source-trust.cjs');
 
 const CATEGORIES = ['ai', 'crypto', 'football'];
 
@@ -79,7 +80,7 @@ async function getRecentTavilyResults(category) {
 
   const data = await response.json();
   const results = (data.results || [])
-    .filter((item) => item.title && item.url && item.content)
+    .filter((item) => item.title && item.url && item.content && sourceTrust(item.url).trusted)
     .map((item) => ({ title: item.title, url: item.url, content: item.content }));
 
   if (results.length < 2) throw new Error('Tavily returned too few usable sources');
@@ -271,4 +272,3 @@ async function runDailyUpdate() {
 }
 
 runDailyUpdate();
-

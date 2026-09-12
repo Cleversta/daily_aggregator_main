@@ -7,6 +7,9 @@ import { getRelatedTopicSlugs } from '../../../lib/related-topics';
 import RelatedYouTubeVideos from '../../components/RelatedYouTubeVideos';
 import SaveBrief from '../../components/SaveBrief';
 import ShareButtons from '../../components/ShareButtons';
+import sourceTrustModule from '../../../lib/source-trust.cjs';
+
+const { sourceTrust } = sourceTrustModule;
 
 // Static export needs every param pre-declared at build time.
 // Only active categories get a real page; inactive ones 404 (and the Navbar
@@ -107,6 +110,8 @@ export default async function CategoryPage({ params }) {
     );
   }
 
+  const safeSources = (article.sources || []).filter((source) => sourceTrust(source.url).trusted);
+
   const wordCount = article.summary.trim().split(/\s+/).filter(Boolean).length;
   const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
   const fetchedDate = new Date(article.fetched_at);
@@ -171,7 +176,7 @@ export default async function CategoryPage({ params }) {
             <SaveBrief slug={slug} title={article.headline} summary={article.summary} />
             <ShareButtons title={article.headline} />
           </div>
-          <nav aria-label="In this brief" className="mb-6 flex flex-wrap gap-4 text-sm font-bold"><a href="#brief" className="action-link">The brief</a>{article.watch_next && <a href="#watch-next" className="action-link">What’s next</a>}<a href="#sources" className="action-link">Sources</a></nav>
+          <nav aria-label="In this brief" className="mb-6 flex flex-wrap gap-4 text-sm font-bold"><a href="#brief" className="action-link">The brief</a>{article.watch_next && <a href="#watch-next" className="action-link">What’s next</a>}{safeSources.length > 0 && <a href="#sources" className="action-link">Sources</a>}</nav>
           {article.seo_description && <aside className="mb-8 rounded-xl bg-[#F6F0E1] p-5"><h2 className="text-xs font-bold uppercase tracking-widest text-slate">At a glance</h2><p className="mt-2 text-lg leading-relaxed text-ink">{article.seo_description}</p></aside>}
         {(article.video_thumbnail_url || article.image_url) && (
           <div className="relative aspect-[16/9] bg-slate-100">
@@ -233,10 +238,10 @@ export default async function CategoryPage({ params }) {
             </section>
           )}
 
-          <section id="sources" className="border-t border-line pt-6">
+          {safeSources.length > 0 && <section id="sources" className="border-t border-line pt-6">
             <h2 className="font-display text-xl font-bold mb-2">Read the original reporting</h2><p className="mb-4 text-sm text-slate">This brief is an original synthesis. Follow the sources for full context.</p>
             <ul className="space-y-3 text-sm">
-              {(article.sources || []).map((source, i) => (
+              {safeSources.map((source, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-wire" aria-hidden="true" />
                   <a
@@ -250,7 +255,7 @@ export default async function CategoryPage({ params }) {
                 </li>
               ))}
             </ul>
-          </section>
+          </section>}
           <Link href="/" className="inline-block mt-8 text-sm text-slate hover:text-ink">
             ← Back to today's briefing
           </Link>

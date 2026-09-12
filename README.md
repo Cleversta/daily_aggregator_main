@@ -272,3 +272,15 @@ calendar days, and age in completed years/months/days. Uses UTC date-only arithm
 to avoid DST differences, supports years 1000–9999, and clamps month anniversaries
 to the last valid day. All processing is local; inputs are not persisted.
 Run `node --test tests/date-calculator.test.mjs`.
+## Site trust and response security
+
+The Cloudflare Worker redirects public HTTP and `www` requests to the canonical
+HTTPS origin and adds CSP, clickjacking, MIME-sniffing, referrer, opener, and
+browser-permission headers to static and API responses.
+
+Automated news, topic, and guide research accepts sources only from the curated
+list in `lib/source-trust.cjs`, including established publishers, official
+organizations, and government or academic domains. Drafts can retain an unknown
+domain for human correction, but publication rejects it. Add a domain only after
+checking its ownership, editorial identity, and the exact evidence page. Existing
+published database content is not silently deleted; refresh or review it separately.

@@ -11,6 +11,22 @@ import { createClient } from '@supabase/supabase-js';
 import { onRequestPost as handleGuideAdmin } from './functions/admin-add-guide.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CANONICAL_HOST = 'dailyaggregator.online';
+const SECURITY_HEADERS = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+};
+
+function secure(response) {
+  const secured = new Response(response.body, response);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) secured.headers.set(name, value);
+  return secured;
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -113,17 +129,24 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if ((url.protocol !== 'https:' || url.hostname === `www.${CANONICAL_HOST}`) &&
+        !['localhost', '127.0.0.1'].includes(url.hostname)) {
+      url.protocol = 'https:';
+      url.hostname = CANONICAL_HOST;
+      return secure(Response.redirect(url.toString(), 308));
+    }
+
     if (request.method === 'POST' && url.pathname === '/subscribe') {
-      return handleSubscribe(request, env);
+      return secure(await handleSubscribe(request, env));
     }
     if (request.method === 'GET' && url.pathname === '/confirm') {
-      return handleConfirm(request, env);
+      return secure(await handleConfirm(request, env));
     }
     if (request.method === 'POST' && url.pathname === '/admin/guide-api') {
-      return handleGuideAdmin({ request, env });
+      return secure(await handleGuideAdmin({ request, env }));
     }
 
     // Not a known API route — serve the static Next.js export.
-    return env.ASSETS.fetch(request);
+    return secure(await env.ASSETS.fetch(request));
   },
 };

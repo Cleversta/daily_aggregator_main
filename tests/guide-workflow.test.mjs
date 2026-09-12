@@ -32,6 +32,8 @@ test('publishing requires verification and evidence, accepts a complete reviewed
   assert.throws(()=>normalizeGuide({...base,verified_on:'2026-02-31'},true));
   assert.throws(()=>normalizeGuide({...base,recommendations:[{...base.recommendations[0],source_urls:[]}]},true));
   assert.throws(()=>normalizeGuide({...base,recommendations:[{...base.recommendations[0],url:'javascript:alert(1)'}]}));
+  assert.throws(()=>normalizeGuide({...base,sources:[{title:'Unknown',url:'https://unknown-source.invalid/story'}]},true),/untrusted link/);
+  assert.throws(()=>normalizeGuide({...base,sources:[{title:'Insecure',url:'http://example.com/story'}]},true),/untrusted link/);
 });
 test('AI never sets verification and cannot invent evidence URLs', () => {
   const result=validateAIDraft(base,base,[source]); assert.equal(result.verification,'unverified'); assert.equal(result.verified_on,'');

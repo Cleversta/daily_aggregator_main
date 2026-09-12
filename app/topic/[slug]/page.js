@@ -7,6 +7,9 @@ import { getRelatedCategorySlug } from '../../../lib/related-topics';
 import { NewBadge } from '../../components/Freshness';
 import ShareButtons from '../../components/ShareButtons';
 import TopicCover from '../../components/TopicCover';
+import sourceTrustModule from '../../../lib/source-trust.cjs';
+
+const { sourceTrust } = sourceTrustModule;
 
 // Static export needs every param pre-declared at build time — every topic
 // gets a page (unlike categories, there's no active/inactive split here
@@ -91,6 +94,9 @@ export default async function TopicPage({ params }) {
       </div>
     );
   }
+
+  const safeSources = (Array.isArray(row.sources) ? row.sources : [])
+    .filter((source) => sourceTrust(source.url).trusted);
 
   const checkedDate = row.last_checked_at ? new Date(row.last_checked_at) : null;
   const updatedDate = row.last_updated_at ? new Date(row.last_updated_at) : null;
@@ -246,11 +252,11 @@ export default async function TopicPage({ params }) {
             </section>
           )}
 
-          {Array.isArray(row.sources) && row.sources.length > 0 && (
+          {safeSources.length > 0 && (
             <div className="border-t border-line pt-6">
               <p className="text-xs uppercase tracking-[0.16em] font-bold text-slate mb-4">Sources</p>
               <ul className="space-y-3 text-sm">
-                {row.sources.map((source, i) => (
+                {safeSources.map((source, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-wire" aria-hidden="true" />
                     <a

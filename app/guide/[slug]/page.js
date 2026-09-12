@@ -9,6 +9,9 @@ import {
   getIntentBySlug,
   getCategoryBySlug,
 } from '../../../lib/guide';
+import sourceTrustModule from '../../../lib/source-trust.cjs';
+
+const { sourceTrust } = sourceTrustModule;
 
 // Static export needs every param pre-declared at build time.
 export async function generateStaticParams() {
@@ -67,9 +70,14 @@ export default async function GuideDetailPage({ params }) {
     .filter(guide => guide.slug !== slug && guide.category === intent.category)
     .slice(0, 4);
 
+  const safeSources = (intent.sources || []).filter((source) => sourceTrust(source.url).trusted);
+  const safeSourceUrls = new Set(safeSources.map((source) => source.url));
   const liveRecs = intent.recommendations.filter(
-    (r) => !r.is_stale
-  );
+    (r) => !r.is_stale && sourceTrust(r.url).trusted
+  ).map((rec) => ({
+    ...rec,
+    source_urls: (rec.source_urls || []).filter((url) => safeSourceUrls.has(url) && sourceTrust(url).trusted),
+  })).filter((rec) => rec.source_urls.length > 0);
 
   const pageUrl = `https://dailyaggregator.online/guide/${slug}`;
   const jsonLd = {
@@ -150,7 +158,7 @@ export default async function GuideDetailPage({ params }) {
             {imageToolMode && <a href="#image-tool" className="font-bold underline">Use image tool</a>}
             {!recommendationsOnly && intent.steps?.length > 0 && <a href="#instructions" className="underline">Instructions</a>}
             {liveRecs.length > 0 && <a href="#recommended-tools" className="underline">Recommended tools</a>}
-            {intent.sources?.length > 0 && <a href="#sources" className="underline">Sources</a>}
+            {safeSources.length > 0 && <a href="#sources" className="underline">Sources</a>}
           </nav>
 
           {imageToolMode && <ImageTool mode={imageToolMode} />}
@@ -163,7 +171,7 @@ export default async function GuideDetailPage({ params }) {
                 <ol className="guide-steps space-y-4">{intent.steps.map((step, i) => <li key={i} className="flex gap-4 rounded-xl border border-line bg-[#FAFAF6] p-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-sm font-bold text-white">{i + 1}</span><span className="pt-0.5 leading-relaxed">{step}</span></li>)}</ol>
               </section>}
 
-              {intent.sources?.length > 0 && <section id="sources" className="scroll-mt-6 mb-10"><h2 className="font-display text-2xl font-bold mb-3">Sources</h2><p className="mb-3 text-sm text-slate">Documentation and pages checked when preparing this guide.</p><ul className="space-y-2">{intent.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline text-sm">{source.title || source.url}</a></li>)}</ul></section>}
+              {safeSources.length > 0 && <section id="sources" className="scroll-mt-6 mb-10"><h2 className="font-display text-2xl font-bold mb-3">Sources</h2><p className="mb-3 text-sm text-slate">Documentation and pages checked when preparing this guide.</p><ul className="space-y-2">{safeSources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline text-sm">{source.title || source.url}</a></li>)}</ul></section>}
               {intent.phrases?.length > 0 && <section className="mb-10"><h2 className="font-display text-2xl font-bold mb-3">Related questions</h2><ul className="flex flex-wrap gap-2">{intent.phrases.slice(0, 8).map(phrase => <li key={phrase} className="rounded-full border border-line px-3 py-1 text-sm text-slate">{phrase}</li>)}</ul></section>}
             </div>
 
