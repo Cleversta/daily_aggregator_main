@@ -23,11 +23,13 @@ export default async function GuideIndexPage() {
   const quickTasks = featured.slice(0, 5);
   const activeCategories = GUIDE_CATEGORIES.filter((cat) => byCategory[cat.slug]?.length);
   const toolLinks = [
+    { href: '/tools/jpg-to-png', title: 'Image converter', badge: 'JPG · PNG · WebP', icon: 'JPG → PNG', accent: 'text-[#285B50]' },
     { href: '/tools/calculator', title: 'Everyday calculator', badge: 'No signup', icon: '＋ − × ÷', accent: 'text-[#285B50]' },
     { href: '/tools/unit-converter', title: 'Unit converter', badge: 'Instant results', icon: '⇄', accent: 'text-[#285B50]' },
     { href: '/tools/color-picker', title: 'Color picker', badge: 'Hex + RGB', icon: '◉', accent: 'text-[#6F4E9D]' },
     { href: '/tools/countdown', title: 'How long until…', badge: 'Your local time', icon: '📅', accent: 'text-[#9A7324]' },
     { href: '/tools/date-calculator', title: 'Date calculator', badge: 'Add / subtract days', icon: '📆', accent: 'text-[#285B50]' },
+    { href: '/tools/tip-discount-calculator', title: 'Tip & discount', badge: 'Split bills', icon: '%', accent: 'text-[#725C27]' },
   ];
 
   return (
@@ -89,7 +91,7 @@ export default async function GuideIndexPage() {
         )}
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {toolLinks.map((tool) => (
           <Link key={tool.href} href={tool.href} className="surface-card flex min-h-[170px] flex-col justify-between gap-4 p-5 transition-colors hover:border-wire">
             <div>

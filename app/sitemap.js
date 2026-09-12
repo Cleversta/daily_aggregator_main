@@ -8,7 +8,7 @@ import { YOUTUBE_CATEGORIES, YOUTUBE_REGIONS } from '../lib/youtube';
 const BASE_URL = 'https://dailyaggregator.online';
 
 export default async function sitemap() {
-  const staticRoutes = ['', '/about', '/editorial-policy', '/privacy', '/contact', '/topics', '/youtube', '/guide', '/creator-ideas', '/tools/calculator', '/tools/unit-converter', '/tools/color-picker', '/tools/christmas-countdown', '/tools/countdown', '/tools/date-calculator'].map(
+  const staticRoutes = ['', '/about', '/editorial-policy', '/privacy', '/contact', '/topics', '/youtube', '/guide', '/creator-ideas', '/tools/calculator', '/tools/unit-converter', '/tools/color-picker', '/tools/christmas-countdown', '/tools/countdown', '/tools/date-calculator', '/tools/jpg-to-png', '/tools/tip-discount-calculator'].map(
     (path) => ({
       url: `${BASE_URL}${path}`,
       changeFrequency: path === '' || path === '/creator-ideas' ? 'daily' : 'monthly',

@@ -9,6 +9,7 @@ const types = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const bytes = value => value < 1024 * 1024 ? `${(value / 1024).toFixed(1)} KB` : `${(value / (1024 * 1024)).toFixed(2)} MB`;
 
 export default function ImageTool({ mode = 'compress' }) {
+  const formatConverter = mode === 'convert-png';
   const [rotation, setRotation] = useState(0);
   const [aspect, setAspect] = useState('original');
   const [zoom, setZoom] = useState(100);
@@ -17,7 +18,7 @@ export default function ImageTool({ mode = 'compress' }) {
   const [source, setSource] = useState(null);
   const [result, setResult] = useState(null);
   const [width, setWidth] = useState('');
-  const [format, setFormat] = useState('image/webp');
+  const [format, setFormat] = useState(formatConverter ? 'image/png' : 'image/webp');
   const [quality, setQuality] = useState(80);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -61,7 +62,7 @@ export default function ImageTool({ mode = 'compress' }) {
 
   async function selectFile(file) {
     reset();
-    setFormat('image/webp'); setQuality(80);
+    setFormat(formatConverter ? (file?.type === 'image/png' ? 'image/jpeg' : 'image/png') : 'image/webp'); setQuality(80);
     if (!file) return;
     if (!types[file.type]) { setError('Choose a JPG, PNG, or WebP image. Other formats are not supported.'); return; }
     if (file.size > MAX_FILE_BYTES) { setError('Choose an image smaller than 25 MB.'); return; }
@@ -74,8 +75,9 @@ export default function ImageTool({ mode = 'compress' }) {
       image.src = url;
       await image.decode();
       if (job !== operation.current) return;
-      if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 40000000) {
-        throw new Error('Choose an image with no more than 40 megapixels.');
+      const sourcePixels = image.naturalWidth * image.naturalHeight;
+      if (!image.naturalWidth || !image.naturalHeight || sourcePixels > (formatConverter ? MAX_PIXELS : 40000000)) {
+        throw new Error(`Choose an image with no more than ${formatConverter ? '16' : '40'} megapixels.`);
       }
       const initialWidth = Math.min(image.naturalWidth, mode === 'resize' ? 1200 : image.naturalWidth, Math.floor(Math.sqrt(MAX_PIXELS * image.naturalWidth / image.naturalHeight)), Math.floor(8192 * image.naturalWidth / image.naturalHeight), 8192);
       setSource({ file, image, url, width: image.naturalWidth, height: image.naturalHeight });
@@ -131,7 +133,7 @@ export default function ImageTool({ mode = 'compress' }) {
       const url = URL.createObjectURL(blob);
       resultUrl.current = url;
       const stem = source.file.name.replace(/\.[^.]+$/, '') || 'image';
-      setResult({ url, size: blob.size, width: targetWidth, height, filename: `${stem}-${targetWidth}w.${types[blob.type]}` });
+      setResult({ url, size: blob.size, width: targetWidth, height, type: blob.type, filename: `${stem}-${targetWidth}w.${types[blob.type]}` });
     } catch (err) {
       if (job === operation.current) setError(err.message || 'Something went wrong. Try a smaller image.');
     } finally {
@@ -145,15 +147,15 @@ export default function ImageTool({ mode = 'compress' }) {
   return (
     <section id="image-tool" aria-labelledby="image-tool-heading" className="mb-10 rounded-2xl border border-[#B9D3C5] bg-[#F3F8F3] p-5 sm:p-7">
       <p className="text-xs font-bold uppercase tracking-widest text-[#285B50]">Try it here</p>
-      <h2 id="image-tool-heading" className="mt-2 font-display text-2xl font-bold">{mode === 'resize' ? 'Resize your image' : 'Make your image smaller'}</h2>
+      <h2 id="image-tool-heading" className="mt-2 font-display text-2xl font-bold">{formatConverter ? 'Convert JPG, PNG, or WebP' : mode === 'resize' ? 'Resize your image' : 'Make your image smaller'}</h2>
       <p className="mt-2 text-sm leading-relaxed text-slate">Your image stays on this device. No upload, account, or server processing.</p>
       <div className="mt-5 rounded-xl border-2 border-dashed border-[#B9D3C5] bg-white p-5">
         <label htmlFor="image-file" className="block font-bold">Choose an image</label>
         {source && <p className="mt-2 break-all text-sm text-slate">Selected: {source.file.name}</p>}
-        <input ref={input} id="image-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => selectFile(event.target.files?.[0])} className="mt-3 block w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:py-3 file:font-bold file:text-white" aria-describedby="image-file-help" />
-        <p id="image-file-help" className="mt-3 text-xs leading-relaxed text-slate">JPG, PNG, or WebP · Up to 25 MB and 40 megapixels. Animated files become a still image. Export may remove metadata and change colors.</p>
+        <input ref={input} id="image-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={event => selectFile(event.target.files?.[0])} className="mt-3 block w-full min-w-0 text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:py-3 file:font-bold file:text-white" aria-describedby="image-file-help" />
+        <p id="image-file-help" className="mt-3 text-xs leading-relaxed text-slate">{formatConverter ? 'JPG, PNG, or WebP · Up to 25 MB and 16 megapixels. Output keeps the same pixel dimensions. Animated WebP becomes a still image.' : 'JPG, PNG, or WebP · Up to 25 MB and 40 megapixels. Animated files become a still image. Export may remove metadata and change colors.'}</p>
       </div>
-      {source && <form onSubmit={processImage} className="mt-5">
+      {source && !formatConverter && <form onSubmit={processImage} className="mt-5">
         <fieldset className="mb-5 rounded-xl border border-line bg-white p-4">
           <legend className="px-2 text-sm font-bold">Crop & rotate</legend>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -172,10 +174,11 @@ export default function ImageTool({ mode = 'compress' }) {
         <p className="mt-3 text-xs text-slate">{format === 'image/jpeg' ? 'Transparent areas will become white in JPG.' : 'PNG and WebP preserve transparent areas.'} Preview and actual download size update after you stop adjusting. Large photos may take a few seconds.</p>
         <div className="mt-4 flex flex-wrap gap-3"><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Updating preview…' : 'Refresh preview'}</button><button type="button" onClick={reset} className="min-h-11 rounded-lg border border-line bg-white px-4 py-3 text-sm font-bold">Clear image</button></div>
       </form>}
-      <p role="status" className="mt-3 text-sm text-[#285B50]">{busy ? 'Calculating actual file size…' : result ? `Ready. ${bytes(result.size)}. ${result.size < source.file.size ? `${Math.round((1 - result.size / source.file.size) * 100)}% smaller.` : 'This result is not smaller. Try WebP, lower quality, or a smaller width.'}` : ''}</p>
+      {source && formatConverter && <div className="mt-4 rounded-xl border border-line bg-white p-4"><label htmlFor="converter-format" className="block text-sm font-bold">Convert to<select id="converter-format" value={format} onChange={event => changeSetting(setFormat, event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-line bg-white px-3 py-2"><option value="image/png">PNG — lossless, supports transparency</option><option value="image/jpeg">JPG — usually best for smaller photos</option><option value="image/webp">WebP — compact, supports transparency</option></select></label>{format !== 'image/png' && <label htmlFor="converter-quality" className="mt-4 block text-sm font-bold">Quality · {quality}%<input id="converter-quality" type="range" min="10" max="100" value={quality} onChange={event => changeSetting(setQuality, Number(event.target.value))} className="mt-2 min-h-8 w-full accent-[#285B50]" /><span className="mt-1 block text-xs font-normal text-slate">Lower quality usually creates a smaller file.</span></label>}<p className="mt-3 text-xs leading-relaxed text-slate">{format === 'image/jpeg' ? 'JPG does not support transparency. Transparent pixels become white.' : format === 'image/png' ? 'PNG is lossless and may be much larger than a JPG photo.' : 'WebP often creates smaller files while keeping transparency.'}</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={processImage} disabled={busy} className="min-h-12 rounded-lg bg-ink px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Converting…' : 'Convert again'}</button><button type="button" onClick={reset} className="min-h-12 rounded-lg border border-line bg-white px-4 py-3 text-sm font-bold">Choose another image</button></div></div>}
+      <p role="status" className="mt-3 text-sm text-[#285B50]">{busy ? (formatConverter ? `Creating ${types[format]?.toUpperCase() || 'image'}…` : 'Calculating actual file size…') : result ? (formatConverter ? `${types[result.type || format]?.toUpperCase() || 'Image'} ready · ${bytes(result.size)}.` : `Ready. ${bytes(result.size)}. ${result.size < source.file.size ? `${Math.round((1 - result.size / source.file.size) * 100)}% smaller.` : 'This result is not smaller. Try WebP, lower quality, or a smaller width.'}`) : ''}</p>
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-white p-3 text-sm text-red-800">{error}</p>}
       {source && <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <figure className="min-w-0 rounded-xl border border-line bg-white p-3"><div className="image-tool-preview"><div className="relative mx-auto" style={{ maxWidth: `${Math.min(100, 100 * source.width / source.height)}%` }}><img src={source.url} alt="Original image with crop area outlined" className="block h-auto w-full" /><div className="pointer-events-none absolute border-2 border-white outline outline-2 outline-[#285B50]" style={{ left: `${crop.x / source.width * 100}%`, top: `${crop.y / source.height * 100}%`, width: `${crop.width / source.width * 100}%`, height: `${crop.height / source.height * 100}%`, boxShadow: '0 0 0 999px #0005' }} /></div></div><figcaption className="mt-3 text-sm"><strong>Original · {bytes(source.file.size)}</strong><span className="block text-xs text-slate">{source.width} × {source.height} px</span></figcaption></figure>
+        <figure className="min-w-0 rounded-xl border border-line bg-white p-3"><div className="image-tool-preview"><div className="relative mx-auto" style={{ maxWidth: `${Math.min(100, 100 * source.width / source.height)}%` }}><img src={source.url} alt={formatConverter ? 'Original image preview' : 'Original image with crop area outlined'} className="block h-auto w-full" />{!formatConverter && <div className="pointer-events-none absolute border-2 border-white outline outline-2 outline-[#285B50]" style={{ left: `${crop.x / source.width * 100}%`, top: `${crop.y / source.height * 100}%`, width: `${crop.width / source.width * 100}%`, height: `${crop.height / source.height * 100}%`, boxShadow: '0 0 0 999px #0005' }} />}</div></div><figcaption className="mt-3 text-sm"><strong>{formatConverter ? `Original ${types[source.file.type]?.toUpperCase() || 'image'}` : 'Original'} · {bytes(source.file.size)}</strong><span className="block text-xs text-slate">{source.width} × {source.height} px</span></figcaption></figure>
         {result ? <figure className="min-w-0 rounded-xl border border-line bg-white p-3"><div className="image-tool-preview"><img src={result.url} alt="Processed image preview" className="h-48 w-full object-contain" /></div><figcaption className="mt-3 text-sm"><strong>Result · {bytes(result.size)}</strong><span className="block text-xs text-slate">{result.width} × {result.height} px</span></figcaption><a href={result.url} download={result.filename} className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[#285B50] px-4 py-3 text-sm font-bold text-white">Download image ↓</a></figure> : <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed border-[#B9D3C5] p-6 text-center text-sm text-slate">Your preview and download size will appear here automatically.</div>}
       </div>}
     </section>

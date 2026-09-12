@@ -63,7 +63,7 @@ export default async function GuideDetailPage({ params }) {
     notFound();
   }
 
-  const imageToolMode = slug === 'compress-image' ? 'compress' : slug === 'resize-photo' ? 'resize' : null;
+  const imageToolMode = slug === 'compress-image' ? 'compress' : slug === 'resize-photo' ? 'resize' : slug === 'jpg-to-png' ? 'convert-png' : null;
   const recommendationsOnly = intent.content_mode === 'recommendations';
   const category = getCategoryBySlug(intent.category);
   const relatedGuides = (await getPublishedIntents())

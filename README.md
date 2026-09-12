@@ -284,3 +284,18 @@ organizations, and government or academic domains. Drafts can retain an unknown
 domain for human correction, but publication rejects it. Add a domain only after
 checking its ownership, editorial identity, and the exact evidence page. Existing
 published database content is not silently deleted; refresh or review it separately.
+## Image format converter
+
+`/tools/jpg-to-png` accepts one JPG, PNG, or WebP up to 25 MB and 16 megapixels,
+preserves its pixel dimensions, and exports JPG, PNG, or WebP entirely in the browser. The
+responsive layout stacks controls and previews on narrow screens. Selected and
+generated images remain in browser memory and are cleared on reload. PNG is
+lossless and may be substantially larger than the source JPG; conversion cannot
+restore detail already lost to JPEG compression. JPG export composites transparent
+pixels on white. WebP and PNG preserve transparency.
+## Tip and discount calculator
+
+`/tools/tip-discount-calculator` has mobile-first tabs for tip/bill splitting
+and sequential discounts with optional tax. Currency choices change display
+formatting only and never perform exchange-rate conversion. Calculations run in
+the browser and are covered by `tests/money-calculator.test.mjs`.
